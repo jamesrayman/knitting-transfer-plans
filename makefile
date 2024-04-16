@@ -19,7 +19,7 @@ bin/main: $(obj) main.o
 	$(CXX) $(includes) -c -o $@ $^ $(CFLAGS)
 
 clean:
-	rm -f $(obj) bin/*
+	rm -f $(obj) main.o test.o bin/*
 
 
 .PHONY: clean all

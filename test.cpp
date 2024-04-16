@@ -1,33 +1,38 @@
 #include "knitting.h"
+#include "search.h"
 #include <iostream>
 
 namespace cb = CBraid;
 using namespace knitting;
 
 int main () {
-    int test_loop_order_count = 0;
-    auto test_loop_order =
-    [&test_loop_order_count](const KnittingState& state, const std::vector<int>& order) {
-        test_loop_order_count++;
-        int i = 0;
-        for (auto it = state.begin(); it != state.end(); it++, i++) {
-            if (*it != order[i]) {
-                std::cout << "loop order test " << test_loop_order_count << " failed. "
-                             "expected " << order[i] << " at " << i << ", got " << *it << ".\n";
-                return;
-            }
+    int test_needle_order_count = 0;
+    auto test_needle_order =
+    [&test_needle_order_count](const KnittingMachine& machine, const std::string& order) {
+        test_needle_order_count++;
+        std::string actual;
+        for (int i = 0; i < 2*machine.width; i++) {
+            NeedleLabel needle = machine[i];
+            actual += needle.front ? 'f' : 'b';
+            actual += std::to_string(needle.i);
+        }
+        if (actual != order) {
+            std::cout << "test_needle_order #" << test_needle_order_count << " failed\n";
+            std::cout << "expected: " << order << "\n";
+            std::cout << "actual:   " << actual << "\n\n";
         }
     };
 
     {
-        KnittingMachine machine (3, -2, 2);
-        KnittingState state (machine, { 1, 1, 1 }, { 1, 1, 1 });
+        KnittingMachine machine (4, -2, 2, 0);
 
-        state.rack(-1);
-        test_loop_order(state, { 0, 2, 1, 4, 3, 5 });
+        test_needle_order(machine, "b0f0b1f1b2f2b3f3");
 
-        state.rack(1);
-        test_loop_order(state, { 1, 0, 3, 2, 5, 4 });
+        machine.racking = -2;
+        test_needle_order(machine, "b0b1b2f0b3f1f2f3");
+
+        machine.racking = 2;
+        test_needle_order(machine, "f0f1b0f2b1f3b2b3");
     }
 
     return 0;
