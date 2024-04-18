@@ -1,7 +1,8 @@
 #include "cbraid.h"
 #include <vector>
 
-std::size_t combine_hash(std::size_t, std::size_t);
+#ifndef KNITTING_H
+#define KNITTING_H
 
 namespace knitting {
     class KnittingState;
@@ -22,13 +23,19 @@ class InvalidRackingException { };
 
 class NeedleLabel {
 public:
-    const bool front;
-    const int i;
+    bool front;
+    int i;
 
     NeedleLabel(bool, int);
     NeedleLabel(const NeedleLabel&);
 
+    bool operator==(const NeedleLabel&) const;
+    bool operator!=(const NeedleLabel&) const;
+
+    NeedleLabel& operator=(const NeedleLabel&);
+
     int id() const;
+    int location(int) const;
 };
 
 class KnittingMachine {
@@ -44,16 +51,29 @@ public:
     NeedleLabel operator[](int) const;
 };
 
+class SlackConstraint {
+public:
+    NeedleLabel needle_1;
+    NeedleLabel needle_2;
+    const int limit;
+
+    SlackConstraint(NeedleLabel, NeedleLabel, int);
+    bool respected(int) const;
+    void replace(NeedleLabel, NeedleLabel);
+};
+
 class KnittingState {
 public:
     using Bed = std::vector<int>;
 
-    class Transition;
+    class TransitionIterator;
+    class Backpointer;
 private:
     KnittingMachine machine;
     Bed back_needles;
     Bed front_needles;
     cb::ArtinBraid braid;
+    std::vector<SlackConstraint> slack_constraints;
     const KnittingState* target;
 
 public:
@@ -64,11 +84,13 @@ public:
         const Bed&,
         const Bed&,
         const cb::ArtinBraid&,
+        const std::vector<SlackConstraint>&,
         const KnittingState* target = nullptr
     );
     KnittingState(const KnittingState&);
 
-    int loop_count(const NeedleLabel&);
+    int& loop_count(const NeedleLabel&);
+    int loop_count(const NeedleLabel&) const;
 
     bool transfer(int, bool);
     bool rack(int);
@@ -78,7 +100,7 @@ public:
 
     KnittingState& operator=(const KnittingState&);
 
-    std::vector<Transition> adjacent() const;
+    TransitionIterator adjacent() const;
 
     int no_heuristic() const;
     int target_heuristic() const;
@@ -88,18 +110,35 @@ public:
     friend std::size_t std::hash<KnittingState>::operator()(const KnittingState&) const;
 };
 
-class KnittingState::Transition {
+class KnittingState::TransitionIterator {
+    int racking;
+    int xfer_i;
+    bool to_front;
+    bool good;
+
+    bool try_next();
 public:
-    KnittingState prev;
+    const KnittingState& prev;
     int weight;
     KnittingState next;
     std::string command;
 
-    Transition();
-    Transition(const KnittingState&, int, const KnittingState&, const std::string&);
-    Transition(const KnittingState::Transition&);
-    KnittingState::Transition& operator=(const KnittingState::Transition&);
+    TransitionIterator(const KnittingState&);
+
+    bool has_next();
 };
 
+class KnittingState::Backpointer {
+public:
+    KnittingState prev;
+    std::string command;
+
+    Backpointer();
+    Backpointer(const KnittingState&, const std::string&);
+    Backpointer(const KnittingState::Backpointer&);
+    KnittingState::Backpointer& operator=(const KnittingState::Backpointer&);
+};
 
 }
+
+#endif
