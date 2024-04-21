@@ -26,7 +26,7 @@ public:
     bool front;
     int i;
 
-    NeedleLabel(bool, int);
+    NeedleLabel(bool = false, int = -1);
     NeedleLabel(const NeedleLabel&);
 
     bool operator==(const NeedleLabel&) const;
@@ -36,6 +36,15 @@ public:
 
     int id() const;
     int location(int) const;
+};
+
+class Needle {
+public:
+    NeedleLabel destination;
+    int count;
+
+    Needle(int, NeedleLabel = NeedleLabel());
+    Needle(const Needle&);
 };
 
 class KnittingMachine {
@@ -55,16 +64,18 @@ class SlackConstraint {
 public:
     NeedleLabel needle_1;
     NeedleLabel needle_2;
-    const int limit;
+    int limit;
 
     SlackConstraint(NeedleLabel, NeedleLabel, int);
     bool respected(int) const;
     void replace(NeedleLabel, NeedleLabel);
+
+    SlackConstraint& operator=(const SlackConstraint&);
 };
 
 class KnittingState {
 public:
-    using Bed = std::vector<int>;
+    using Bed = std::vector<Needle>;
 
     class TransitionIterator;
     class Backpointer;
@@ -74,20 +85,22 @@ private:
     Bed front_needles;
     cb::ArtinBraid braid;
     std::vector<SlackConstraint> slack_constraints;
-    const KnittingState* target;
+    KnittingState* target;
 
 public:
 
     KnittingState();
     KnittingState(
         const KnittingMachine,
-        const Bed&,
-        const Bed&,
+        const std::vector<int>&,
+        const std::vector<int>&,
         const cb::ArtinBraid&,
         const std::vector<SlackConstraint>&,
-        const KnittingState* target = nullptr
+        KnittingState* target = nullptr
     );
     KnittingState(const KnittingState&);
+
+    void set_target(KnittingState*);
 
     int& loop_count(const NeedleLabel&);
     int loop_count(const NeedleLabel&) const;
@@ -100,6 +113,7 @@ public:
 
     KnittingState& operator=(const KnittingState&);
 
+    std::vector<KnittingState> all_rackings();
     TransitionIterator adjacent() const;
 
     int no_heuristic() const;

@@ -35,6 +35,15 @@ int NeedleLabel::location(int racking) const {
     return front ? i : i + racking;
 }
 
+Needle::Needle(int count, NeedleLabel destination) :
+    count(count),
+    destination(destination)
+{ }
+Needle::Needle(const Needle& other) :
+    count(other.count),
+    destination(other.destination)
+{ }
+
 KnittingMachine::KnittingMachine(int width, int min_racking, int max_racking, int racking) :
     width(width),
     min_racking(min_racking),
@@ -87,6 +96,12 @@ SlackConstraint::SlackConstraint(NeedleLabel needle_1, NeedleLabel needle_2, int
     needle_2(needle_2),
     limit(limit)
 { }
+SlackConstraint& SlackConstraint::operator=(const SlackConstraint& other) {
+    needle_1 = other.needle_1;
+    needle_2 = other.needle_2;
+    limit = other.limit;
+    return *this;
+}
 
 bool SlackConstraint::respected(int racking) const {
     return abs(needle_1.location(racking) - needle_2.location(racking)) <= limit;
@@ -106,19 +121,22 @@ KnittingState::KnittingState() :
 
 KnittingState::KnittingState(
     const KnittingMachine machine,
-    const Bed& back_needles,
-    const Bed& front_needles,
+    const std::vector<int>& back_loop_counts,
+    const std::vector<int>& front_loop_counts,
     const cb::ArtinBraid& braid,
     const std::vector<SlackConstraint>& slack_constraints,
-    const KnittingState* target
+    KnittingState* target
 ) :
     machine(machine),
-    back_needles(back_needles),
-    front_needles(front_needles),
     braid(braid),
     slack_constraints(slack_constraints),
     target(target)
-{ }
+{
+    for (int i = 0; i < machine.width; i++) {
+        back_needles.emplace_back(back_loop_counts[i]);
+        front_needles.emplace_back(front_loop_counts[i]);
+    }
+}
 
 KnittingState::KnittingState(const KnittingState& other) :
     machine(other.machine),
@@ -129,14 +147,19 @@ KnittingState::KnittingState(const KnittingState& other) :
     target(other.target)
 { }
 
-int& KnittingState::loop_count(const NeedleLabel& n) {
-    return n.front ? front_needles[n.i] : back_needles[n.i];
-}
-int KnittingState::loop_count(const NeedleLabel& n) const {
-    return n.front ? front_needles[n.i] : back_needles[n.i];
+
+void KnittingState::set_target(KnittingState* t) {
+    target = t;
 }
 
-bool KnittingState::transfer(int loc, bool to_back) {
+int& KnittingState::loop_count(const NeedleLabel& n) {
+    return n.front ? front_needles[n.i].count : back_needles[n.i].count;
+}
+int KnittingState::loop_count(const NeedleLabel& n) const {
+    return n.front ? front_needles[n.i].count : back_needles[n.i].count;
+}
+
+bool KnittingState::transfer(int loc, bool to_front) {
     NeedleLabel back_needle = NeedleLabel(false, loc - machine.racking);
     NeedleLabel front_needle = NeedleLabel(true, loc);
 
@@ -159,13 +182,19 @@ bool KnittingState::transfer(int loc, bool to_back) {
         braid = braid.Merge(j+1);
     }
 
-    if (to_back) {
-        loop_count(back_needle) += loop_count(front_needle);
-        loop_count(front_needle) = 0;
-    }
-    else {
+    if (to_front) {
         loop_count(front_needle) += loop_count(back_needle);
         loop_count(back_needle) = 0;
+        for (auto& constraint : slack_constraints) {
+            constraint.replace(back_needle, front_needle);
+        }
+    }
+    else {
+        loop_count(back_needle) += loop_count(front_needle);
+        loop_count(front_needle) = 0;
+        for (auto& constraint : slack_constraints) {
+            constraint.replace(front_needle, back_needle);
+        }
     }
 
     return true;
@@ -212,10 +241,20 @@ bool KnittingState::rack(int new_racking) {
 }
 
 bool KnittingState::operator==(const KnittingState& other) const {
-    return machine.racking == other.machine.racking &&
-           front_needles == other.front_needles &&
-           back_needles == other.back_needles &&
-           braid == other.braid;
+    if (machine.racking != other.machine.racking) {
+        return false;
+    }
+
+    for (int i = 0; i < machine.width; i++) {
+        if (
+            back_needles[i].count != other.back_needles[i].count ||
+            front_needles[i].count != other.front_needles[i].count
+        ) {
+            return false;
+        }
+    }
+
+    return braid == other.braid;
 }
 bool KnittingState::operator!=(const KnittingState& other) const {
     return !(*this == other);
@@ -226,6 +265,7 @@ KnittingState& KnittingState::operator=(const KnittingState& other) {
     front_needles = other.front_needles;
     back_needles = other.back_needles;
     braid = other.braid;
+    slack_constraints = other.slack_constraints;
 
     return *this;
 }
@@ -243,7 +283,8 @@ KnittingState::TransitionIterator::TransitionIterator(
 }
 
 bool KnittingState::TransitionIterator::try_next() {
-    if (good) {
+    if (good) { // if `good` is set, it means the previous transition
+                // worked and we need to reset `next`.
         next = prev;
     }
 
@@ -259,6 +300,9 @@ bool KnittingState::TransitionIterator::try_next() {
         command = "xfer_to_front " + std::to_string(xfer_i);
 
         good = next.transfer(xfer_i, to_front);
+        if (prev.target != nullptr && next == *prev.target) {
+            weight = 1;
+        }
         to_front = false;
         xfer_i++;
     }
@@ -267,6 +311,9 @@ bool KnittingState::TransitionIterator::try_next() {
         command = "xfer_to_back " + std::to_string(xfer_i);
 
         good = next.transfer(xfer_i, to_front);
+        if (prev.target != nullptr && next == *prev.target) {
+            weight = 1;
+        }
         to_front = true;
     }
     return good;
@@ -302,6 +349,19 @@ KnittingState::Backpointer& KnittingState::Backpointer::operator=(const Knitting
     return *this;
 }
 
+std::vector<KnittingState> KnittingState::all_rackings() {
+    std::vector<KnittingState> v;
+    int old_racking = machine.racking;
+
+    for (int r = machine.min_racking; r <= machine.max_racking; r++) {
+        if (rack(r)) {
+            v.push_back(*this);
+        }
+    }
+    rack(old_racking);
+
+    return v;
+}
 KnittingState::TransitionIterator KnittingState::adjacent() const {
     return KnittingState::TransitionIterator(*this);
 }
@@ -327,14 +387,14 @@ std::ostream& operator<<(std::ostream& o, const knitting::KnittingState& state) 
         if (i > 0) {
             o << " ";
         }
-        o << state.back_needles[i];
+        o << state.back_needles[i].count;
     }
     o << "] [";
     for (int i = 0; i < state.machine.width; i++) {
         if (i > 0) {
             o << " ";
         }
-        o << state.front_needles[i];
+        o << state.front_needles[i].count;
     }
     o << "] ";
     o << state.braid;
@@ -354,11 +414,11 @@ std::size_t std::hash<knitting::KnittingState>::operator()(
     size_t h = 0xf0e35c6e3c319f8;
     h = hash_combine(h, state.machine.racking);
 
-    for (auto x : state.back_needles) {
-        h = hash_combine(h, x);
+    for (const auto& n : state.back_needles) {
+        h = hash_combine(h, n.count);
     }
-    for (auto x : state.front_needles) {
-        h = hash_combine(h, x);
+    for (const auto& n : state.front_needles) {
+        h = hash_combine(h, n.count);
     }
 
     h = hash_combine(h, state.braid.Hash());

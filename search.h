@@ -13,9 +13,9 @@ template <typename State>
 class PriorityQueue {
 private:
     std::deque<std::unordered_set<State>> queue;
+public:
     int front = 0;
 
-public:
     void insert(int key, const State& state) {
         while (key-front >= queue.size()) {
             queue.emplace_back();
@@ -76,25 +76,27 @@ public:
     { }
 };
 
-template <typename State>
+template <typename State, typename TransitionIterator>
 SearchResult<State> a_star(
-    const State& source, const State& target,
-    typename State::TransitionIterator (State::*adj)() const, int (State::*h)() const
+    const std::vector<State>& sources, const State& target,
+    TransitionIterator (State::*adj)() const, int (State::*h)() const, int limit = 1e9
 ) {
     PriorityQueue<State> q;
     std::unordered_map<State, int> d;
     std::unordered_map<State, int> dh;
     std::unordered_map<State, typename State::Backpointer> from;
 
-    q.insert((source.*h)(), source);
-    d[source] = 0;
-    dh[source] = (source.*h)();
+    for (const State& source : sources) {
+        q.insert((source.*h)(), source);
+        d[source] = 0;
+        dh[source] = (source.*h)();
+    }
 
     auto dist_at = [&d](const State& state) {
         return d.count(state) ? d[state] : 1e9;
     };
 
-    while (!q.empty()) {
+    while (!q.empty() && q.front <= limit) {
         State state = q.pop();
         int state_d = dist_at(state);
 
@@ -102,7 +104,7 @@ SearchResult<State> a_star(
             return SearchResult<State>(backpointer_path(from, target), state_d, d.size());
         }
 
-        auto it = (state.*adj)();
+        TransitionIterator it = (state.*adj)();
         while (it.has_next()) {
             const int cand_d = state_d + it.weight;
 
@@ -110,7 +112,9 @@ SearchResult<State> a_star(
                 from[it.next] = typename State::Backpointer(state, it.command);
                 d[it.next] = cand_d;
 
-                q.erase(dh[it.next], it.next);
+                if (dh.count(it.next)) {
+                    q.erase(dh[it.next], it.next);
+                }
                 dh[it.next] = cand_d + (it.next.*h)();
                 q.insert(dh[it.next], it.next);
             }
