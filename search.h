@@ -17,6 +17,10 @@ public:
     int front = 0;
 
     void insert(int key, const State& state) {
+        while (key < front) {
+            queue.emplace_front();
+            front--;
+        }
         while (key-front >= queue.size()) {
             queue.emplace_back();
         }
@@ -31,7 +35,9 @@ public:
     }
 
     void erase(int key, const State& state) {
-        queue[key-front].erase(state);
+        if (0 <= key-front && key-front < queue.size()) {
+            queue[key-front].erase(state);
+        }
     }
 
     bool empty() {

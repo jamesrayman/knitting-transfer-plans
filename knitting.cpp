@@ -34,6 +34,13 @@ int NeedleLabel::id() const {
 int NeedleLabel::location(int racking) const {
     return front ? i : i + racking;
 }
+int NeedleLabel::offset(NeedleLabel destination) const {
+    return destination.front ? i - destination.i : destination.i - i;
+}
+
+std::ostream& operator<<(std::ostream& o, const NeedleLabel& needle_label) {
+    return o << (needle_label.front ? 'f' : 'b') << needle_label.i;
+}
 
 Needle::Needle(int count, NeedleLabel destination) :
     count(count),
@@ -129,13 +136,13 @@ KnittingState::KnittingState(
 ) :
     machine(machine),
     braid(braid),
-    slack_constraints(slack_constraints),
-    target(target)
+    slack_constraints(slack_constraints)
 {
     for (int i = 0; i < machine.width; i++) {
         back_needles.emplace_back(back_loop_counts[i]);
         front_needles.emplace_back(front_loop_counts[i]);
     }
+    set_target(target);
 }
 
 KnittingState::KnittingState(const KnittingState& other) :
@@ -147,9 +154,42 @@ KnittingState::KnittingState(const KnittingState& other) :
     target(other.target)
 { }
 
+void KnittingState::calculate_destinations() {
+    auto permutation = braid.GetPerm().Inverse();
+
+    NeedleLabel dest;
+    int left = 0;
+    int j = -1;
+    for (int i = 0; i < 2*machine.width; i++) {
+        NeedleLabel needle = machine[i];
+
+        while (loop_count(needle) > left) {
+            if (left != 0) {
+                throw InvalidTargetStateException();
+            }
+
+            j++;
+            dest = target->needle_with_braid_rank(permutation[j+1]-1);
+            left = target->loop_count(dest);
+        }
+        destination(needle) = dest;
+        left -= loop_count(needle);
+    }
+}
+
+int KnittingState::racking() const {
+    return machine.racking;
+}
 
 void KnittingState::set_target(KnittingState* t) {
     target = t;
+    if (target != nullptr) {
+        if (!target->braid.CompareWithIdentity()) {
+            throw InvalidTargetStateException();
+        }
+
+        calculate_destinations();
+    }
 }
 
 int& KnittingState::loop_count(const NeedleLabel& n) {
@@ -157,6 +197,25 @@ int& KnittingState::loop_count(const NeedleLabel& n) {
 }
 int KnittingState::loop_count(const NeedleLabel& n) const {
     return n.front ? front_needles[n.i].count : back_needles[n.i].count;
+}
+NeedleLabel& KnittingState::destination(const NeedleLabel& n) {
+    return n.front ? front_needles[n.i].destination : back_needles[n.i].destination;
+}
+NeedleLabel KnittingState::destination(const NeedleLabel& n) const {
+    return n.front ? front_needles[n.i].destination : back_needles[n.i].destination;
+}
+NeedleLabel KnittingState::needle_with_braid_rank(int rank) const {
+    int j = -1;
+    for (int i = 0; i < 2*machine.width; i++) {
+        NeedleLabel needle = machine[i];
+        if (loop_count(needle) > 0) {
+            j++;
+            if (j == rank) {
+                return needle;
+            }
+        }
+    }
+    throw InvalidBraidRankException();
 }
 
 bool KnittingState::transfer(int loc, bool to_front) {
@@ -176,7 +235,7 @@ bool KnittingState::transfer(int loc, bool to_front) {
     }
 
     if (loop_count(front_needle) > 0 && loop_count(back_needle) > 0) {
-        if (!braid.CanMerge(j+1)) {
+        if (!braid.CanMerge(j+1) || destination(front_needle) != destination(back_needle)) {
             return false;
         }
         braid = braid.Merge(j+1);
@@ -184,6 +243,7 @@ bool KnittingState::transfer(int loc, bool to_front) {
 
     if (to_front) {
         loop_count(front_needle) += loop_count(back_needle);
+        destination(front_needle) = destination(back_needle);
         loop_count(back_needle) = 0;
         for (auto& constraint : slack_constraints) {
             constraint.replace(back_needle, front_needle);
@@ -191,6 +251,7 @@ bool KnittingState::transfer(int loc, bool to_front) {
     }
     else {
         loop_count(back_needle) += loop_count(front_needle);
+        destination(back_needle) = destination(front_needle);
         loop_count(front_needle) = 0;
         for (auto& constraint : slack_constraints) {
             constraint.replace(front_needle, back_needle);
@@ -362,8 +423,38 @@ std::vector<KnittingState> KnittingState::all_rackings() {
 
     return v;
 }
+std::vector<KnittingState> KnittingState::all_canonical_rackings() {
+    auto v = all_rackings();
+    for (auto& state : v) {
+        state.canonicalize();
+    }
+    return v;
+}
+
 KnittingState::TransitionIterator KnittingState::adjacent() const {
     return KnittingState::TransitionIterator(*this);
+}
+
+KnittingState::CanonicalTransitionIterator KnittingState::canonical_adjacent() const {
+    throw NotImplemented();
+}
+
+void KnittingState::canonicalize() {
+    if (target != nullptr && *this != *target) {
+        return;
+    }
+
+    for (
+        int i = std::max(0, machine.racking); i < machine.width + std::min(0, machine.racking); i++
+    ) {
+        NeedleLabel back_needle = NeedleLabel(false, i - machine.racking);
+        NeedleLabel front_needle = NeedleLabel(true, i);
+
+        if (loop_count(front_needle) > 0 && loop_count(back_needle) == 0) {
+            transfer(i, false);
+        }
+    }
+
 }
 
 int KnittingState::no_heuristic() const {
@@ -378,7 +469,56 @@ int KnittingState::target_heuristic() const {
 }
 
 int KnittingState::braid_heuristic() const {
-    return std::max(target_heuristic(), int(braid.FactorList.size()));
+    if (braid.FactorList.size() > 0) {
+        return braid.FactorList.size();
+    }
+    return target_heuristic();
+}
+
+std::unordered_set<int> KnittingState::offsets() const {
+    std::unordered_set<int> offs;
+
+    for (int i = 0; i < 2*machine.width; i++) {
+        NeedleLabel needle = machine[i];
+        if (loop_count(needle) == 0) {
+            continue;
+        }
+
+        int off = needle.offset(destination(needle));
+        if (off != 0) {
+            offs.insert(off);
+        }
+    }
+
+    return offs;
+}
+
+int KnittingState::log_heuristic() const {
+    int n = offsets().size();
+
+    if (n == 0) {
+        return target_heuristic();
+    }
+
+    // calculate x = ceil(log_2(n+1))
+    int x = 1;
+    while (n > 1) {
+        x++;
+        n >>= 1;
+    }
+    return x;
+}
+
+int KnittingState::prebuilt_heuristic() const {
+    throw NotImplemented();
+}
+
+int KnittingState::braid_log_heuristic() const {
+    return std::max((int)braid.FactorList.size(), log_heuristic());
+}
+
+int KnittingState::braid_prebuilt_heuristic() const {
+    return std::max((int)braid.FactorList.size(), prebuilt_heuristic());
 }
 
 std::ostream& operator<<(std::ostream& o, const knitting::KnittingState& state) {

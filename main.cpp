@@ -20,19 +20,21 @@ int main () {
         { 0, 0, 0, 0, 0 },
         { 1, 1, 1, 1, 1 },
         b, {
-            kn::SlackConstraint(kn::NeedleLabel(true, 0), kn::NeedleLabel(true, 1), 1),
-            kn::SlackConstraint(kn::NeedleLabel(true, 1), kn::NeedleLabel(true, 2), 1),
-            kn::SlackConstraint(kn::NeedleLabel(true, 2), kn::NeedleLabel(true, 3), 1),
-            kn::SlackConstraint(kn::NeedleLabel(true, 3), kn::NeedleLabel(true, 4), 1)
+            kn::SlackConstraint(kn::NeedleLabel(true, 0), kn::NeedleLabel(true, 1), 2),
+            kn::SlackConstraint(kn::NeedleLabel(true, 1), kn::NeedleLabel(true, 2), 2),
+            kn::SlackConstraint(kn::NeedleLabel(true, 2), kn::NeedleLabel(true, 3), 2),
+            kn::SlackConstraint(kn::NeedleLabel(true, 3), kn::NeedleLabel(true, 4), 2)
         }, &target
     );
 
     auto result = search::a_star(
-        source.all_rackings(), target, &kn::KnittingState::adjacent, &kn::KnittingState::braid_heuristic
+        source.all_rackings(), target,
+        &kn::KnittingState::adjacent, &kn::KnittingState::braid_log_heuristic
     );
 
     std::cout << "Tree size: " << result.search_tree_size << std::endl;
     std::cout << "Path length: " << result.path_length << std::endl;
+    std::cout << "rack " << result.path.back().prev.racking() << std::endl;
     for (const auto& t : result.path) {
         std::cout << t.command << std::endl;
     }

@@ -1,5 +1,6 @@
 #include "cbraid.h"
 #include <vector>
+#include <unordered_set>
 
 #ifndef KNITTING_H
 #define KNITTING_H
@@ -18,8 +19,11 @@ namespace knitting {
 
 namespace cb = CBraid;
 
+class NotImplemented { };
 class InvalidKnittingMachineException { };
 class InvalidRackingException { };
+class InvalidTargetStateException { };
+class InvalidBraidRankException { };
 
 class NeedleLabel {
 public:
@@ -36,6 +40,9 @@ public:
 
     int id() const;
     int location(int) const;
+    int offset(NeedleLabel) const;
+
+    friend std::ostream& operator<<(std::ostream&, const NeedleLabel&);
 };
 
 class Needle {
@@ -78,6 +85,7 @@ public:
     using Bed = std::vector<Needle>;
 
     class TransitionIterator;
+    class CanonicalTransitionIterator;
     class Backpointer;
 private:
     KnittingMachine machine;
@@ -87,8 +95,8 @@ private:
     std::vector<SlackConstraint> slack_constraints;
     KnittingState* target;
 
+    void calculate_destinations();
 public:
-
     KnittingState();
     KnittingState(
         const KnittingMachine,
@@ -100,10 +108,17 @@ public:
     );
     KnittingState(const KnittingState&);
 
+    int racking() const;
+
     void set_target(KnittingState*);
 
     int& loop_count(const NeedleLabel&);
     int loop_count(const NeedleLabel&) const;
+
+    NeedleLabel& destination(const NeedleLabel&);
+    NeedleLabel destination(const NeedleLabel&) const;
+
+    NeedleLabel needle_with_braid_rank(int) const;
 
     bool transfer(int, bool);
     bool rack(int);
@@ -114,11 +129,22 @@ public:
     KnittingState& operator=(const KnittingState&);
 
     std::vector<KnittingState> all_rackings();
+    std::vector<KnittingState> all_canonical_rackings();
+
     TransitionIterator adjacent() const;
+    CanonicalTransitionIterator canonical_adjacent() const;
+
+    void canonicalize();
+
+    std::unordered_set<int> offsets() const;
 
     int no_heuristic() const;
     int target_heuristic() const;
     int braid_heuristic() const;
+    int log_heuristic() const;
+    int prebuilt_heuristic() const;
+    int braid_log_heuristic() const;
+    int braid_prebuilt_heuristic() const;
 
     friend std::ostream& operator<<(std::ostream&, const KnittingState&);
     friend std::size_t std::hash<KnittingState>::operator()(const KnittingState&) const;
@@ -151,6 +177,10 @@ public:
     Backpointer(const KnittingState&, const std::string&);
     Backpointer(const KnittingState::Backpointer&);
     KnittingState::Backpointer& operator=(const KnittingState::Backpointer&);
+};
+
+class KnittingState::CanonicalTransitionIterator {
+
 };
 
 }
