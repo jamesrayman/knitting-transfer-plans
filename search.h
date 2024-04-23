@@ -3,6 +3,7 @@
 #include <vector>
 #include <deque>
 #include <algorithm>
+#include "util.h"
 
 #ifndef SEARCH_H
 #define SEARCH_H
@@ -72,15 +73,18 @@ public:
     const std::vector<typename State::Backpointer> path;
     const unsigned int path_length;
     const unsigned int search_tree_size;
+    double seconds_taken;
 
     SearchResult(
         const std::vector<typename State::Backpointer>& path,
         unsigned int path_length,
-        unsigned int search_tree_size
+        unsigned int search_tree_size,
+        double seconds_taken
     ) :
         path(path),
         path_length(path_length),
-        search_tree_size(search_tree_size)
+        search_tree_size(search_tree_size),
+        seconds_taken(seconds_taken)
     { }
 };
 
@@ -90,6 +94,7 @@ SearchResult<State> a_star(
     TransitionIterator (State::*adj)() const, unsigned int (State::*h)() const,
     unsigned int limit = 1e9
 ) {
+    StopWatch stop_watch;
     PriorityQueue<State> q;
     std::unordered_map<State, unsigned int> d;
     std::unordered_map<State, unsigned int> dh;
@@ -110,7 +115,9 @@ SearchResult<State> a_star(
         unsigned int state_d = dist_at(state);
 
         if (state == target) {
-            return SearchResult<State>(backpointer_path(from, target), state_d, d.size());
+            return SearchResult<State>(
+                backpointer_path(from, target), state_d, d.size(), stop_watch.stop()
+            );
         }
 
         TransitionIterator it = (state.*adj)();
@@ -130,7 +137,9 @@ SearchResult<State> a_star(
         }
     }
 
-    return SearchResult<State>(std::vector<typename State::Backpointer>(), -1, d.size());
+    return SearchResult<State>(
+        std::vector<typename State::Backpointer>(), -1, d.size(), stop_watch.stop()
+    );
 }
 
 }

@@ -1,4 +1,5 @@
 #include <cstddef>
+#include <chrono>
 
 #ifndef UTIL_H
 #define UTIL_H
@@ -8,5 +9,24 @@ inline std::size_t hash_combine(std::size_t x, std::size_t y) {
 }
 
 class NotImplemented { };
+
+class StopWatch {
+private:
+    std::chrono::time_point<std::chrono::steady_clock> start_time;
+
+public:
+    StopWatch() {
+        start();
+    }
+    void start() {
+        start_time = std::chrono::steady_clock::now();
+    }
+    double stop() {
+        return std::chrono::duration<double, std::ratio<1>>(
+            std::chrono::steady_clock::now() - start_time
+        ).count();
+    }
+
+};
 
 #endif
