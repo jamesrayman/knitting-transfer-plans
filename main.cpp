@@ -11,29 +11,36 @@ int main () {
     cb::ArtinBraid b(5);
     b.LeftMultiply(cb::ArtinFactor(5, 1));
 
-    kn::KnittingStateLM21 target(m,
+    std::vector<kn::LoopSlackConstraint> loop_slack_constraints = {
+        kn::LoopSlackConstraint(0, 1, 2),
+        kn::LoopSlackConstraint(1, 2, 2),
+        kn::LoopSlackConstraint(2, 3, 2),
+        kn::LoopSlackConstraint(3, 4, 2)
+    };
+    std::vector<kn::SlackConstraint> slack_constraints = {
+        kn::SlackConstraint(kn::NeedleLabel(true, 0), kn::NeedleLabel(true, 1), 2),
+        kn::SlackConstraint(kn::NeedleLabel(true, 1), kn::NeedleLabel(true, 2), 2),
+        kn::SlackConstraint(kn::NeedleLabel(true, 2), kn::NeedleLabel(true, 3), 2),
+        kn::SlackConstraint(kn::NeedleLabel(true, 3), kn::NeedleLabel(true, 4), 2)
+    };
+
+    using State = kn::KnittingState;
+
+    State target(m,
         { 0, 0, 0, 0, 0 },
         { 1, 1, 1, 1, 1 },
-        cb::ArtinBraid(5), {}
+        cb::ArtinBraid(5), slack_constraints
     );
-    kn::KnittingStateLM21 source(m,
+
+    State source(m,
         { 0, 0, 0, 0, 0 },
         { 1, 1, 1, 1, 1 },
-        b, {
-            kn::LoopSlackConstraint(0, 1, 2),
-            kn::LoopSlackConstraint(1, 2, 2),
-            kn::LoopSlackConstraint(2, 3, 2),
-            kn::LoopSlackConstraint(3, 4, 2)
-            // kn::SlackConstraint(kn::NeedleLabel(true, 0), kn::NeedleLabel(true, 1), 2),
-            // kn::SlackConstraint(kn::NeedleLabel(true, 1), kn::NeedleLabel(true, 2), 2),
-            // kn::SlackConstraint(kn::NeedleLabel(true, 2), kn::NeedleLabel(true, 3), 2),
-            // kn::SlackConstraint(kn::NeedleLabel(true, 3), kn::NeedleLabel(true, 4), 2)
-        }, &target
+        b, slack_constraints, &target
     );
 
     auto result = search::a_star(
-        source.all_rackings(), target,
-        &kn::KnittingStateLM21::adjacent, &kn::KnittingStateLM21::log_heuristic
+        source.all_canonical_rackings(), target,
+        &State::canonical_adjacent, &State::braid_log_heuristic
     );
 
     std::cout << "Tree size: " << result.search_tree_size << std::endl;

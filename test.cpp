@@ -73,8 +73,8 @@ int main () {
 
         if (!target.rack(-2)) std::cout << "error: target.rack\n";
         if (!target.transfer(1, false)) std::cout << "error: target.transfer\n";
-        if (!std::cout << target.rack(0)) std::cout << "error: target.rack\n";
-        if (!std::cout << target.transfer(4, true)) std::cout << "error: target.transfer\n";
+        if (!target.rack(0)) std::cout << "error: target.rack\n";
+        if (!target.transfer(4, true)) std::cout << "error: target.transfer\n";
 
         source.set_target(&target);
 

@@ -142,13 +142,13 @@ public:
 
     unsigned long long offsets() const;
 
-    int no_heuristic() const;
-    int target_heuristic() const;
-    int braid_heuristic() const;
-    int log_heuristic() const;
-    int prebuilt_heuristic() const;
-    int braid_log_heuristic() const;
-    int braid_prebuilt_heuristic() const;
+    unsigned int no_heuristic() const;
+    unsigned int target_heuristic() const;
+    unsigned int braid_heuristic() const;
+    unsigned int log_heuristic() const;
+    unsigned int prebuilt_heuristic() const;
+    unsigned int braid_log_heuristic() const;
+    unsigned int braid_prebuilt_heuristic() const;
 
     friend std::ostream& operator<<(std::ostream&, const KnittingState&);
     friend std::size_t std::hash<KnittingState>::operator()(const KnittingState&) const;
@@ -247,6 +247,7 @@ public:
 
     int racking() const;
     bool needle_empty(NeedleLabel) const;
+    int loop_count(NeedleLabel) const;
 
     void set_target(KnittingStateLM21*);
     bool can_transfer(int) const;
@@ -269,13 +270,13 @@ public:
 
     unsigned long long offsets() const;
 
-    int no_heuristic() const;
-    int target_heuristic() const;
-    int braid_heuristic() const;
-    int log_heuristic() const;
-    int prebuilt_heuristic() const;
-    int braid_log_heuristic() const;
-    int braid_prebuilt_heuristic() const;
+    unsigned int no_heuristic() const;
+    unsigned int target_heuristic() const;
+    unsigned int braid_heuristic() const;
+    unsigned int log_heuristic() const;
+    unsigned int prebuilt_heuristic() const;
+    unsigned int braid_log_heuristic() const;
+    unsigned int braid_prebuilt_heuristic() const;
 
     friend std::ostream& operator<<(std::ostream&, const KnittingStateLM21&);
     friend std::size_t std::hash<KnittingStateLM21>::operator()(const KnittingStateLM21&) const;

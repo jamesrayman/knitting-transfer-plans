@@ -44,12 +44,12 @@ std::ostream& operator<<(std::ostream& o, const NeedleLabel& needle_label) {
 }
 
 Needle::Needle(int count, NeedleLabel destination) :
-    count(count),
-    destination(destination)
+    destination(destination),
+    count(count)
 { }
 Needle::Needle(const Needle& other) :
-    count(other.count),
-    destination(other.destination)
+    destination(other.destination),
+    count(other.count)
 { }
 
 KnittingMachine::KnittingMachine(int width, int min_racking, int max_racking, int racking) :
@@ -449,11 +449,11 @@ KnittingState::CanonicalTransitionIterator::CanonicalTransitionIterator(
 void KnittingState::CanonicalTransitionIterator::increment_xfers() {
     next_uncanonical = prev;
 
-    for (int i = 0; i < xfers.size(); i++) {
+    for (unsigned int i = 0; i < xfers.size(); i++) {
 
         if (xfers[i] == (xfer_types[i] ? 2 : 1)) {
             xfers[i] = 0;
-            if (i == xfer_is.size() - 1) {
+            if (i + 1 == xfer_is.size()) {
                 done = true;
                 return;
             }
@@ -465,7 +465,7 @@ void KnittingState::CanonicalTransitionIterator::increment_xfers() {
     }
     xfer_command = "xfer";
 
-    for (int i = 0; i < xfers.size(); i++) {
+    for (unsigned int i = 0; i < xfers.size(); i++) {
         if (xfers[i] == 1) {
             next_uncanonical.transfer(xfer_is[i], false);
             xfer_command += " b" + std::to_string(i);
@@ -582,18 +582,18 @@ bool KnittingState::canonicalize() {
     return true;
 }
 
-int KnittingState::no_heuristic() const {
+unsigned int KnittingState::no_heuristic() const {
     return 0;
 }
 
-int KnittingState::target_heuristic() const {
+unsigned int KnittingState::target_heuristic() const {
     if (target == nullptr) {
         return 0;
     }
     return *this == *target ? 0 : 1;
 }
 
-int KnittingState::braid_heuristic() const {
+unsigned int KnittingState::braid_heuristic() const {
     if (braid.FactorList.size() > 0) {
         return braid.FactorList.size();
     }
@@ -601,7 +601,7 @@ int KnittingState::braid_heuristic() const {
 }
 
 unsigned long long KnittingState::offsets() const {
-    unsigned long long offs;
+    unsigned long long offs = 0;
 
     for (int i = 0; i < 2*machine.width; i++) {
         NeedleLabel needle = machine[i];
@@ -618,7 +618,7 @@ unsigned long long KnittingState::offsets() const {
     return offs;
 }
 
-int KnittingState::log_heuristic() const {
+unsigned int KnittingState::log_heuristic() const {
     int n = std::popcount(offsets());
 
     if (n == 0) {
@@ -634,16 +634,16 @@ int KnittingState::log_heuristic() const {
     return x;
 }
 
-int KnittingState::prebuilt_heuristic() const {
+unsigned int KnittingState::prebuilt_heuristic() const {
     return prebuilt::query(offsets());
 }
 
-int KnittingState::braid_log_heuristic() const {
-    return std::max((int)braid.FactorList.size(), log_heuristic());
+unsigned int KnittingState::braid_log_heuristic() const {
+    return std::max((unsigned int)braid.FactorList.size(), log_heuristic());
 }
 
-int KnittingState::braid_prebuilt_heuristic() const {
-    return std::max((int)braid.FactorList.size(), prebuilt_heuristic());
+unsigned int KnittingState::braid_prebuilt_heuristic() const {
+    return std::max((unsigned int)braid.FactorList.size(), prebuilt_heuristic());
 }
 
 std::ostream& operator<<(std::ostream& o, const knitting::KnittingState& state) {

@@ -14,9 +14,9 @@ class PriorityQueue {
 private:
     std::deque<std::unordered_set<State>> queue;
 public:
-    int front = 0;
+    unsigned int front = 0;
 
-    void insert(int key, const State& state) {
+    void insert(unsigned int key, const State& state) {
         while (key < front) {
             queue.emplace_front();
             front--;
@@ -34,7 +34,7 @@ public:
         return ret;
     }
 
-    void erase(int key, const State& state) {
+    void erase(unsigned int key, const State& state) {
         if (0 <= key-front && key-front < queue.size()) {
             queue[key-front].erase(state);
         }
@@ -70,11 +70,13 @@ template <typename State>
 class SearchResult {
 public:
     const std::vector<typename State::Backpointer> path;
-    const int path_length;
-    const int search_tree_size;
+    const unsigned int path_length;
+    const unsigned int search_tree_size;
 
     SearchResult(
-        const std::vector<typename State::Backpointer>& path, int path_length, int search_tree_size
+        const std::vector<typename State::Backpointer>& path,
+        unsigned int path_length,
+        unsigned int search_tree_size
     ) :
         path(path),
         path_length(path_length),
@@ -85,11 +87,12 @@ public:
 template <typename State, typename TransitionIterator>
 SearchResult<State> a_star(
     const std::vector<State>& sources, const State& target,
-    TransitionIterator (State::*adj)() const, int (State::*h)() const, int limit = 1e9
+    TransitionIterator (State::*adj)() const, unsigned int (State::*h)() const,
+    unsigned int limit = 1e9
 ) {
     PriorityQueue<State> q;
-    std::unordered_map<State, int> d;
-    std::unordered_map<State, int> dh;
+    std::unordered_map<State, unsigned int> d;
+    std::unordered_map<State, unsigned int> dh;
     std::unordered_map<State, typename State::Backpointer> from;
 
     for (const State& source : sources) {
@@ -104,7 +107,7 @@ SearchResult<State> a_star(
 
     while (!q.empty() && q.front <= limit) {
         State state = q.pop();
-        int state_d = dist_at(state);
+        unsigned int state_d = dist_at(state);
 
         if (state == target) {
             return SearchResult<State>(backpointer_path(from, target), state_d, d.size());
@@ -112,7 +115,7 @@ SearchResult<State> a_star(
 
         TransitionIterator it = (state.*adj)();
         while (it.has_next()) {
-            const int cand_d = state_d + it.weight;
+            const unsigned int cand_d = state_d + it.weight;
 
             if (cand_d < dist_at(it.next)) {
                 from[it.next] = typename State::Backpointer(state, it.command);

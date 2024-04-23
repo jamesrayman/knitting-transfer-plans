@@ -30,9 +30,21 @@ KnittingStateLM21::KnittingStateLM21(
 ) :
     machine(machine),
     braid(braid),
+    loop_locations(braid.Index()),
     slack_constraints(&slack_constraints)
 {
-    throw NotImplemented();
+    auto permutation = braid.GetPerm().Inverse();
+
+    for (int i = 0, j = 0; i < 2*machine.width; i++) {
+        NeedleLabel needle = machine[i];
+        const std::vector<int>& loop_counts = needle.front ? front_loop_counts : back_loop_counts;
+        int loop_count = loop_counts[needle.i];
+
+        for (int k = 0; k < loop_count; k++, j++) {
+            loop_locations[permutation[j+1]-1] = needle;
+        }
+    }
+
     set_target(target);
 }
 KnittingStateLM21::KnittingStateLM21(const KnittingStateLM21& other) :
@@ -48,7 +60,22 @@ int KnittingStateLM21::racking() const {
 }
 
 bool KnittingStateLM21::needle_empty(NeedleLabel needle) const {
-    throw NotImplemented();
+    for (const auto& n : loop_locations) {
+        if (n == needle) {
+            return false;
+        }
+    }
+    return true;
+}
+
+int KnittingStateLM21::loop_count(NeedleLabel needle) const {
+    int count = 0;
+    for (const auto& n : loop_locations) {
+        if (n == needle) {
+            count++;
+        }
+    }
+    return count;
 }
 
 void KnittingStateLM21::set_target(KnittingStateLM21* t) {
@@ -82,7 +109,29 @@ bool KnittingStateLM21::rack(int new_racking) {
         }
     }
 
-    throw NotImplemented();
+    cb::ArtinFactor f(braid.Index(), cb::ArtinFactor::Uninitialize, new_racking < machine.racking);
+    std::vector<int> needle_positions (2*machine.width);
+
+    for (int i = 0, j = 0; i < 2*machine.width; i++) {
+        NeedleLabel needle = machine[i];
+        needle_positions[needle.id()] = j;
+        j += loop_count(needle);
+    }
+    machine.racking = new_racking;
+
+    for (int i = 0, j = 0; i < 2*machine.width; i++) {
+        NeedleLabel needle = machine[i];
+        int count = loop_count(needle);
+
+        for (int k = 0; k < count; k++, j++) {
+            f[j + 1] = needle_positions[needle.id()] + k + 1;
+        }
+    }
+
+    braid.LeftMultiply(f);
+    braid.MakeMCF();
+
+    return true;
 }
 bool KnittingStateLM21::transfer(int loc, bool to_front) {
     NeedleLabel back_needle = NeedleLabel(false, loc - machine.racking);
@@ -92,7 +141,7 @@ bool KnittingStateLM21::transfer(int loc, bool to_front) {
     NeedleLabel from_needle = to_front ? back_needle : front_needle;
 
     for (auto& needle : loop_locations) {
-        if (needle == front_needle) {
+        if (needle == from_needle) {
             needle = to_needle;
         }
     }
@@ -165,47 +214,56 @@ bool KnittingStateLM21::canonicalize() {
 }
 
 unsigned long long KnittingStateLM21::offsets() const {
-    throw NotImplemented();
+    unsigned long long offs = 0;
+
+    for (unsigned int i = 0; i < loop_locations.size(); i++) {
+        int off = loop_locations[i].offset(target->loop_locations[i]);
+        if (off != 0 && off < 32 && off >= -32) {
+            offs |= 1 << (off+32);
+        }
+    }
+
+    return offs;
 }
 
-int KnittingStateLM21::no_heuristic() const {
+unsigned int KnittingStateLM21::no_heuristic() const {
     return 0;
 }
-int KnittingStateLM21::target_heuristic() const {
+unsigned int KnittingStateLM21::target_heuristic() const {
     if (target == nullptr) {
         return 0;
     }
     return *this == *target ? 0 : 1;
 }
-int KnittingStateLM21::braid_heuristic() const {
+unsigned int KnittingStateLM21::braid_heuristic() const {
     if (braid.FactorList.size() > 0) {
         return braid.FactorList.size();
     }
     return target_heuristic();
 }
-int KnittingStateLM21::log_heuristic() const {
-    int n = std::popcount(offsets());
+unsigned int KnittingStateLM21::log_heuristic() const {
+    unsigned int n = std::popcount(offsets());
 
     if (n == 0) {
         return target_heuristic();
     }
 
     // calculate x = ceil(log_2(n+1))
-    int x = 1;
+    unsigned int x = 1;
     while (n > 1) {
         x++;
         n >>= 1;
     }
     return x;
 }
-int KnittingStateLM21::prebuilt_heuristic() const {
+unsigned int KnittingStateLM21::prebuilt_heuristic() const {
     return prebuilt::query(offsets());
 }
-int KnittingStateLM21::braid_log_heuristic() const {
-    return std::max((int)braid.FactorList.size(), log_heuristic());
+unsigned int KnittingStateLM21::braid_log_heuristic() const {
+    return std::max((unsigned int)braid.FactorList.size(), log_heuristic());
 }
-int KnittingStateLM21::braid_prebuilt_heuristic() const {
-    return std::max((int)braid.FactorList.size(), prebuilt_heuristic());
+unsigned int KnittingStateLM21::braid_prebuilt_heuristic() const {
+    return std::max((unsigned int)braid.FactorList.size(), prebuilt_heuristic());
 }
 
 
@@ -213,15 +271,55 @@ KnittingStateLM21::TransitionIterator::TransitionIterator(const KnittingStateLM2
     prev(prev),
     next(prev)
 {
-    throw NotImplemented();
+    racking = prev.machine.min_racking;
+    xfer_i = std::max(0, prev.machine.racking);
+    to_front = false;
+    good = false;
 }
 
 bool KnittingStateLM21::TransitionIterator::try_next() {
-    throw NotImplemented();
+    if (good) {
+        next = prev;
+    }
+
+    if (racking <= prev.machine.max_racking) {
+        weight = 1;
+        command = "rack " + std::to_string(racking);
+
+        good = next.rack(racking);
+        racking++;
+    }
+    else if (to_front) {
+        weight = 0;
+        command = "xfer_to_front " + std::to_string(xfer_i);
+
+        good = next.transfer(xfer_i, to_front);
+        if (prev.target != nullptr && next == *prev.target) {
+            weight = 1;
+        }
+        to_front = false;
+        xfer_i++;
+    }
+    else {
+        weight = 0;
+        command = "xfer_to_back " + std::to_string(xfer_i);
+
+        good = next.transfer(xfer_i, to_front);
+        if (prev.target != nullptr && next == *prev.target) {
+            weight = 1;
+        }
+        to_front = true;
+    }
+    return good;
 }
 
 bool KnittingStateLM21::TransitionIterator::has_next() {
-    throw NotImplemented();
+    while (xfer_i < prev.machine.width + std::min(0, prev.machine.racking)) {
+        if (try_next()) {
+            return true;
+        }
+    }
+    return false;
 }
 
 KnittingStateLM21::CanonicalTransitionIterator::CanonicalTransitionIterator(
@@ -231,17 +329,88 @@ KnittingStateLM21::CanonicalTransitionIterator::CanonicalTransitionIterator(
     prev(prev),
     next(prev)
 {
-    throw NotImplemented();
+    racking = prev.machine.min_racking;
+    good = false;
+
+    for (
+        int i = std::max(0, prev.machine.racking);
+        i < prev.machine.width + std::min(0, prev.machine.racking);
+        i++
+    ) {
+        if (prev.can_transfer(i)) {
+            xfer_is.push_back(i);
+            xfers.push_back(0);
+            xfer_types.push_back(
+                !prev.needle_empty(NeedleLabel(true, i)) &&
+                !prev.needle_empty(NeedleLabel(false, i - prev.machine.racking))
+            );
+        }
+    }
+
+    done = xfers.empty();
+    xfer_command = "xfer none";
 }
 
 void KnittingStateLM21::CanonicalTransitionIterator::increment_xfers() {
-    throw NotImplemented();
+    next_uncanonical = prev;
+
+    for (unsigned int i = 0; i < xfers.size(); i++) {
+
+        if (xfers[i] == (xfer_types[i] ? 2 : 1)) {
+            xfers[i] = 0;
+            if (i + 1 == xfer_is.size()) {
+                done = true;
+                return;
+            }
+        }
+        else {
+            xfers[i]++;
+            break;
+        }
+    }
+    xfer_command = "xfer";
+
+    for (unsigned int i = 0; i < xfers.size(); i++) {
+        if (xfers[i] == 1) {
+            next_uncanonical.transfer(xfer_is[i], false);
+            xfer_command += " b" + std::to_string(i);
+        }
+        else if (xfers[i] == 2) {
+            next_uncanonical.transfer(xfer_is[i], true);
+            xfer_command += " f" + std::to_string(i);
+        }
+    }
 }
 bool KnittingStateLM21::CanonicalTransitionIterator::try_next() {
-    throw NotImplemented();
+    if (racking > prev.machine.max_racking) {
+        increment_xfers();
+        racking = prev.machine.min_racking;
+        if (done) {
+            return false;
+        }
+    }
+
+    command = xfer_command + "; rack " + std::to_string(racking);
+
+    next = next_uncanonical;
+    good = next.rack(racking);
+    if (next.canonicalize() && next == *prev.target) {
+        weight = 2;
+    }
+    else {
+        weight = 1;
+    }
+    racking++;
+
+    return good;
 }
 bool KnittingStateLM21::CanonicalTransitionIterator::has_next() {
-    throw NotImplemented();
+    while (!done) {
+        if (try_next()) {
+            return true;
+        }
+    }
+    return false;
 }
 
 
@@ -268,14 +437,35 @@ KnittingStateLM21::Backpointer& KnittingStateLM21::Backpointer::operator=(
     return *this;
 }
 
+std::ostream& operator<<(std::ostream& o, const knitting::KnittingStateLM21& state) {
+    o << state.machine.racking << " [";
+    for (unsigned int i = 0; i < state.loop_locations.size(); i++) {
+        if (i > 0) {
+            o << " ";
+        }
+        o << state.loop_locations[i];
+    }
+    o << "] ";
+    o << state.braid;
+
+    return o;
+
 }
 
-std::ostream& operator<<(std::ostream& o, const knitting::KnittingStateLM21& state) {
-    throw NotImplemented();
 }
 
 std::size_t std::hash<knitting::KnittingStateLM21>::operator()(
     const knitting::KnittingStateLM21& state
 ) const {
-    throw NotImplemented();
+    size_t h = 0xf0e35c6e3c319f8;
+    h = hash_combine(h, state.machine.racking);
+
+    for (const auto& needle : state.loop_locations) {
+        h = hash_combine(h, needle.front);
+        h = hash_combine(h, needle.i);
+    }
+
+    h = hash_combine(h, state.braid.Hash());
+
+    return h;
 }
