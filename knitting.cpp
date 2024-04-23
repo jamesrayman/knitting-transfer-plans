@@ -1,6 +1,7 @@
+#include <bit>
 #include "knitting.h"
 #include "cbraid.h"
-#include "braiding.h"
+#include "prebuilt.h"
 
 namespace knitting {
 
@@ -218,6 +219,34 @@ NeedleLabel KnittingState::needle_with_braid_rank(int rank) const {
     throw InvalidBraidRankException();
 }
 
+bool KnittingState::can_transfer(int loc) const {
+    NeedleLabel back_needle = NeedleLabel(false, loc - machine.racking);
+    NeedleLabel front_needle = NeedleLabel(true, loc);
+
+    if (loop_count(front_needle) == 0 && loop_count(back_needle) == 0) {
+        return false;
+    }
+    if (loop_count(front_needle) == 0 || loop_count(back_needle) == 0) {
+        return true;
+    }
+    if (destination(front_needle) != destination(back_needle)) {
+        return false;
+    }
+
+    // find which needle this is
+    int j = 0;
+    for (int i = 0; i < 2*machine.width; i++) {
+        NeedleLabel needle = machine[i];
+        if (!needle.front && needle.i == loc - machine.racking) {
+            break;
+        }
+        if (loop_count(needle) > 0) {
+            j++;
+        }
+    }
+    return braid.CanMerge(j+1);
+}
+
 bool KnittingState::transfer(int loc, bool to_front) {
     NeedleLabel back_needle = NeedleLabel(false, loc - machine.racking);
     NeedleLabel front_needle = NeedleLabel(true, loc);
@@ -235,7 +264,7 @@ bool KnittingState::transfer(int loc, bool to_front) {
     }
 
     if (loop_count(front_needle) > 0 && loop_count(back_needle) > 0) {
-        if (!braid.CanMerge(j+1) || destination(front_needle) != destination(back_needle)) {
+        if (destination(front_needle) != destination(back_needle) || !braid.CanMerge(j+1)) {
             return false;
         }
         braid = braid.Merge(j+1);
@@ -274,7 +303,6 @@ bool KnittingState::rack(int new_racking) {
             return false;
         }
     }
-
 
     cb::ArtinFactor f(braid.Index(), cb::ArtinFactor::Uninitialize, new_racking < machine.racking);
     std::vector<int> needle_positions (2*machine.width);
@@ -327,6 +355,7 @@ KnittingState& KnittingState::operator=(const KnittingState& other) {
     back_needles = other.back_needles;
     braid = other.braid;
     slack_constraints = other.slack_constraints;
+    target = other.target;
 
     return *this;
 }
@@ -388,6 +417,100 @@ bool KnittingState::TransitionIterator::has_next() {
     return false;
 }
 
+KnittingState::CanonicalTransitionIterator::CanonicalTransitionIterator(
+    const KnittingState& prev
+) :
+    next_uncanonical(prev),
+    prev(prev),
+    next(prev)
+{
+    racking = prev.machine.min_racking;
+    good = false;
+
+    for (
+        int i = std::max(0, prev.machine.racking);
+        i < prev.machine.width + std::min(0, prev.machine.racking);
+        i++
+    ) {
+        if (prev.can_transfer(i)) {
+            xfer_is.push_back(i);
+            xfers.push_back(0);
+            xfer_types.push_back(
+                prev.loop_count(NeedleLabel(true, i)) > 0 &&
+                prev.loop_count(NeedleLabel(false, i - prev.machine.racking)) > 0
+            );
+        }
+    }
+
+    done = xfers.empty();
+    xfer_command = "xfer none";
+}
+
+void KnittingState::CanonicalTransitionIterator::increment_xfers() {
+    next_uncanonical = prev;
+
+    for (int i = 0; i < xfers.size(); i++) {
+
+        if (xfers[i] == (xfer_types[i] ? 2 : 1)) {
+            xfers[i] = 0;
+            if (i == xfer_is.size() - 1) {
+                done = true;
+                return;
+            }
+        }
+        else {
+            xfers[i]++;
+            break;
+        }
+    }
+    xfer_command = "xfer";
+
+    for (int i = 0; i < xfers.size(); i++) {
+        if (xfers[i] == 1) {
+            next_uncanonical.transfer(xfer_is[i], false);
+            xfer_command += " b" + std::to_string(i);
+        }
+        else if (xfers[i] == 2) {
+            next_uncanonical.transfer(xfer_is[i], true);
+            xfer_command += " f" + std::to_string(i);
+        }
+    }
+}
+
+bool KnittingState::CanonicalTransitionIterator::try_next() {
+    if (racking > prev.machine.max_racking) {
+        increment_xfers();
+        racking = prev.machine.min_racking;
+        if (done) {
+            return false;
+        }
+    }
+
+    command = xfer_command + "; rack " + std::to_string(racking);
+
+    next = next_uncanonical;
+    good = next.rack(racking);
+    if (next.canonicalize() && next == *prev.target) {
+        // if canonicalize makes us hit our target, then we need to
+        // count it as an extra transfer pass
+        weight = 2;
+    }
+    else {
+        weight = 1;
+    }
+    racking++;
+
+    return good;
+}
+bool KnittingState::CanonicalTransitionIterator::has_next() {
+    while (!done) {
+        if (try_next()) {
+            return true;
+        }
+    }
+    return false;
+}
+
 KnittingState::Backpointer::Backpointer() {}
 
 KnittingState::Backpointer::Backpointer(
@@ -436,12 +559,14 @@ KnittingState::TransitionIterator KnittingState::adjacent() const {
 }
 
 KnittingState::CanonicalTransitionIterator KnittingState::canonical_adjacent() const {
-    throw NotImplemented();
+    return KnittingState::CanonicalTransitionIterator(*this);
 }
 
-void KnittingState::canonicalize() {
-    if (target != nullptr && *this != *target) {
-        return;
+bool KnittingState::canonicalize() {
+    // don't canonicalize if we are at the target, and return false to
+    // signal that we didn't canonicalize
+    if (target != nullptr && *this == *target) {
+        return false;
     }
 
     for (
@@ -450,11 +575,11 @@ void KnittingState::canonicalize() {
         NeedleLabel back_needle = NeedleLabel(false, i - machine.racking);
         NeedleLabel front_needle = NeedleLabel(true, i);
 
-        if (loop_count(front_needle) > 0 && loop_count(back_needle) == 0) {
-            transfer(i, false);
+        if (loop_count(back_needle) > 0 && loop_count(front_needle) == 0) {
+            transfer(i, true);
         }
     }
-
+    return true;
 }
 
 int KnittingState::no_heuristic() const {
@@ -475,8 +600,8 @@ int KnittingState::braid_heuristic() const {
     return target_heuristic();
 }
 
-std::unordered_set<int> KnittingState::offsets() const {
-    std::unordered_set<int> offs;
+unsigned long long KnittingState::offsets() const {
+    unsigned long long offs;
 
     for (int i = 0; i < 2*machine.width; i++) {
         NeedleLabel needle = machine[i];
@@ -485,8 +610,8 @@ std::unordered_set<int> KnittingState::offsets() const {
         }
 
         int off = needle.offset(destination(needle));
-        if (off != 0) {
-            offs.insert(off);
+        if (off != 0 && off < 32 && off >= -32) {
+            offs |= 1 << (off+32);
         }
     }
 
@@ -494,7 +619,7 @@ std::unordered_set<int> KnittingState::offsets() const {
 }
 
 int KnittingState::log_heuristic() const {
-    int n = offsets().size();
+    int n = std::popcount(offsets());
 
     if (n == 0) {
         return target_heuristic();
@@ -510,7 +635,7 @@ int KnittingState::log_heuristic() const {
 }
 
 int KnittingState::prebuilt_heuristic() const {
-    throw NotImplemented();
+    return prebuilt::query(offsets());
 }
 
 int KnittingState::braid_log_heuristic() const {

@@ -1,12 +1,12 @@
 #include "cbraid.h"
 #include <vector>
-#include <unordered_set>
 
 #ifndef KNITTING_H
 #define KNITTING_H
 
 namespace knitting {
     class KnittingState;
+    class KnittingStateLM21;
 }
 
 template <>
@@ -14,12 +14,15 @@ struct std::hash<knitting::KnittingState> {
     std::size_t operator()(const knitting::KnittingState&) const;
 };
 
+template <>
+struct std::hash<knitting::KnittingStateLM21> {
+    std::size_t operator()(const knitting::KnittingStateLM21&) const;
+};
 
 namespace knitting {
 
 namespace cb = CBraid;
 
-class NotImplemented { };
 class InvalidKnittingMachineException { };
 class InvalidRackingException { };
 class InvalidTargetStateException { };
@@ -104,7 +107,7 @@ public:
         const std::vector<int>&,
         const cb::ArtinBraid&,
         const std::vector<SlackConstraint>&,
-        KnittingState* target = nullptr
+        KnittingState* = nullptr
     );
     KnittingState(const KnittingState&);
 
@@ -119,6 +122,7 @@ public:
     NeedleLabel destination(const NeedleLabel&) const;
 
     NeedleLabel needle_with_braid_rank(int) const;
+    bool can_transfer(int) const;
 
     bool transfer(int, bool);
     bool rack(int);
@@ -134,9 +138,9 @@ public:
     TransitionIterator adjacent() const;
     CanonicalTransitionIterator canonical_adjacent() const;
 
-    void canonicalize();
+    bool canonicalize();
 
-    std::unordered_set<int> offsets() const;
+    unsigned long long offsets() const;
 
     int no_heuristic() const;
     int target_heuristic() const;
@@ -168,6 +172,30 @@ public:
     bool has_next();
 };
 
+class KnittingState::CanonicalTransitionIterator {
+    int racking;
+    std::vector<int> xfer_is;
+    std::vector<bool> xfer_types; // false => 2 choices; true => 3 choices
+    std::vector<int> xfers; // xfer actions: 0 => nothing; 1 => xfer_to_back; 2 => xfer_to_front
+    std::string xfer_command;
+    bool good;
+    bool done;
+    KnittingState next_uncanonical;
+
+    void increment_xfers();
+    bool try_next();
+public:
+    const KnittingState& prev;
+    int weight = 1;
+    KnittingState next;
+    std::string command;
+
+    CanonicalTransitionIterator(const KnittingState&);
+
+    bool has_next();
+};
+
+
 class KnittingState::Backpointer {
 public:
     KnittingState prev;
@@ -179,8 +207,130 @@ public:
     KnittingState::Backpointer& operator=(const KnittingState::Backpointer&);
 };
 
-class KnittingState::CanonicalTransitionIterator {
 
+class LoopSlackConstraint {
+public:
+    int loop_1;
+    int loop_2;
+    int limit;
+
+    LoopSlackConstraint(int, int, int);
+    bool respected(NeedleLabel, NeedleLabel, int) const;
+};
+
+class KnittingStateLM21 {
+public:
+    class TransitionIterator;
+    class CanonicalTransitionIterator;
+    class Backpointer;
+
+private:
+    KnittingMachine machine;
+    cb::ArtinBraid braid;
+    std::vector<NeedleLabel> loop_locations;
+    const std::vector<LoopSlackConstraint>* slack_constraints;
+    KnittingStateLM21* target;
+
+    void calculate_destinations();
+
+public:
+    KnittingStateLM21();
+    KnittingStateLM21(
+        const KnittingMachine,
+        const std::vector<int>&,
+        const std::vector<int>&,
+        const cb::ArtinBraid&,
+        const std::vector<LoopSlackConstraint>&,
+        KnittingStateLM21* = nullptr
+    );
+    KnittingStateLM21(const KnittingStateLM21&);
+
+    int racking() const;
+    bool needle_empty(NeedleLabel) const;
+
+    void set_target(KnittingStateLM21*);
+    bool can_transfer(int) const;
+
+    bool rack(int);
+    bool transfer(int, bool);
+
+    bool operator==(const KnittingStateLM21&) const;
+    bool operator!=(const KnittingStateLM21&) const;
+
+    KnittingStateLM21& operator=(const KnittingStateLM21&);
+
+    std::vector<KnittingStateLM21> all_rackings();
+    std::vector<KnittingStateLM21> all_canonical_rackings();
+
+    TransitionIterator adjacent() const;
+    CanonicalTransitionIterator canonical_adjacent() const;
+
+    bool canonicalize();
+
+    unsigned long long offsets() const;
+
+    int no_heuristic() const;
+    int target_heuristic() const;
+    int braid_heuristic() const;
+    int log_heuristic() const;
+    int prebuilt_heuristic() const;
+    int braid_log_heuristic() const;
+    int braid_prebuilt_heuristic() const;
+
+    friend std::ostream& operator<<(std::ostream&, const KnittingStateLM21&);
+    friend std::size_t std::hash<KnittingStateLM21>::operator()(const KnittingStateLM21&) const;
+};
+
+class KnittingStateLM21::TransitionIterator {
+    int racking;
+    int xfer_i;
+    bool to_front;
+    bool good;
+
+    bool try_next();
+public:
+    const KnittingStateLM21& prev;
+    int weight;
+    KnittingStateLM21 next;
+    std::string command;
+
+    TransitionIterator(const KnittingStateLM21&);
+
+    bool has_next();
+};
+
+class KnittingStateLM21::CanonicalTransitionIterator {
+    int racking;
+    std::vector<int> xfer_is;
+    std::vector<bool> xfer_types;
+    std::vector<int> xfers;
+    std::string xfer_command;
+    bool good;
+    bool done;
+    KnittingStateLM21 next_uncanonical;
+
+    void increment_xfers();
+    bool try_next();
+public:
+    const KnittingStateLM21& prev;
+    int weight;
+    KnittingStateLM21 next;
+    std::string command;
+
+    CanonicalTransitionIterator(const KnittingStateLM21&);
+
+    bool has_next();
+};
+
+class KnittingStateLM21::Backpointer {
+public:
+    KnittingStateLM21 prev;
+    std::string command;
+
+    Backpointer();
+    Backpointer(const KnittingStateLM21&, const std::string&);
+    Backpointer(const KnittingStateLM21::Backpointer&);
+    KnittingStateLM21::Backpointer& operator=(const KnittingStateLM21::Backpointer&);
 };
 
 }
