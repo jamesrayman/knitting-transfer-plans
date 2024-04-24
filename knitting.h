@@ -88,7 +88,6 @@ public:
     using Bed = std::vector<Needle>;
 
     class TransitionIterator;
-    class CanonicalTransitionIterator;
     class Backpointer;
 private:
     KnittingMachine machine;
@@ -136,7 +135,7 @@ public:
     std::vector<KnittingState> all_canonical_rackings();
 
     TransitionIterator adjacent() const;
-    CanonicalTransitionIterator canonical_adjacent() const;
+    TransitionIterator canonical_adjacent() const;
 
     bool canonicalize();
 
@@ -156,28 +155,11 @@ public:
 
 class KnittingState::TransitionIterator {
     int racking;
-    int xfer_i;
-    bool to_front;
-    bool good;
-
-    bool try_next();
-public:
-    const KnittingState& prev;
-    int weight;
-    KnittingState next;
-    std::string command;
-
-    TransitionIterator(const KnittingState&);
-
-    bool has_next();
-};
-
-class KnittingState::CanonicalTransitionIterator {
-    int racking;
     std::vector<int> xfer_is;
     std::vector<bool> xfer_types; // false => 2 choices; true => 3 choices
     std::vector<int> xfers; // xfer actions: 0 => nothing; 1 => xfer_to_back; 2 => xfer_to_front
     std::string xfer_command;
+    bool canonicalize;
     bool good;
     bool done;
     KnittingState next_uncanonical;
@@ -190,7 +172,7 @@ public:
     KnittingState next;
     std::string command;
 
-    CanonicalTransitionIterator(const KnittingState&);
+    TransitionIterator(const KnittingState&, bool);
 
     bool has_next();
 };
@@ -221,7 +203,6 @@ public:
 class KnittingStateLM21 {
 public:
     class TransitionIterator;
-    class CanonicalTransitionIterator;
     class Backpointer;
 
 private:
@@ -264,7 +245,7 @@ public:
     std::vector<KnittingStateLM21> all_canonical_rackings();
 
     TransitionIterator adjacent() const;
-    CanonicalTransitionIterator canonical_adjacent() const;
+    TransitionIterator canonical_adjacent() const;
 
     bool canonicalize();
 
@@ -284,28 +265,11 @@ public:
 
 class KnittingStateLM21::TransitionIterator {
     int racking;
-    int xfer_i;
-    bool to_front;
-    bool good;
-
-    bool try_next();
-public:
-    const KnittingStateLM21& prev;
-    int weight;
-    KnittingStateLM21 next;
-    std::string command;
-
-    TransitionIterator(const KnittingStateLM21&);
-
-    bool has_next();
-};
-
-class KnittingStateLM21::CanonicalTransitionIterator {
-    int racking;
     std::vector<int> xfer_is;
     std::vector<bool> xfer_types;
     std::vector<int> xfers;
     std::string xfer_command;
+    bool canonicalize;
     bool good;
     bool done;
     KnittingStateLM21 next_uncanonical;
@@ -318,7 +282,7 @@ public:
     KnittingStateLM21 next;
     std::string command;
 
-    CanonicalTransitionIterator(const KnittingStateLM21&);
+    TransitionIterator(const KnittingStateLM21&, bool);
 
     bool has_next();
 };

@@ -71,7 +71,7 @@ template <typename State>
 class SearchResult {
 public:
     const std::vector<typename State::Backpointer> path;
-    const unsigned int path_length;
+    const int path_length;
     const unsigned int search_tree_size;
     double seconds_taken;
 

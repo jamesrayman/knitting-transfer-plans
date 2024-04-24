@@ -190,10 +190,10 @@ std::vector<KnittingStateLM21> KnittingStateLM21::all_canonical_rackings() {
 }
 
 KnittingStateLM21::TransitionIterator KnittingStateLM21::adjacent() const {
-    return KnittingStateLM21::TransitionIterator(*this);
+    return KnittingStateLM21::TransitionIterator(*this, false);
 }
-KnittingStateLM21::CanonicalTransitionIterator KnittingStateLM21::canonical_adjacent() const {
-    return KnittingStateLM21::CanonicalTransitionIterator(*this);
+KnittingStateLM21::TransitionIterator KnittingStateLM21::canonical_adjacent() const {
+    return KnittingStateLM21::TransitionIterator(*this, true);
 }
 
 bool KnittingStateLM21::canonicalize() {
@@ -267,64 +267,11 @@ unsigned int KnittingStateLM21::braid_prebuilt_heuristic() const {
 }
 
 
-KnittingStateLM21::TransitionIterator::TransitionIterator(const KnittingStateLM21& prev) :
-    prev(prev),
-    next(prev)
-{
-    racking = prev.machine.min_racking;
-    xfer_i = std::max(0, prev.machine.racking);
-    to_front = false;
-    good = false;
-}
-
-bool KnittingStateLM21::TransitionIterator::try_next() {
-    if (good) {
-        next = prev;
-    }
-
-    if (racking <= prev.machine.max_racking) {
-        weight = 1;
-        command = "rack " + std::to_string(racking);
-
-        good = next.rack(racking);
-        racking++;
-    }
-    else if (to_front) {
-        weight = 0;
-        command = "xfer_to_front " + std::to_string(xfer_i);
-
-        good = next.transfer(xfer_i, to_front);
-        if (prev.target != nullptr && next == *prev.target) {
-            weight = 1;
-        }
-        to_front = false;
-        xfer_i++;
-    }
-    else {
-        weight = 0;
-        command = "xfer_to_back " + std::to_string(xfer_i);
-
-        good = next.transfer(xfer_i, to_front);
-        if (prev.target != nullptr && next == *prev.target) {
-            weight = 1;
-        }
-        to_front = true;
-    }
-    return good;
-}
-
-bool KnittingStateLM21::TransitionIterator::has_next() {
-    while (xfer_i < prev.machine.width + std::min(0, prev.machine.racking)) {
-        if (try_next()) {
-            return true;
-        }
-    }
-    return false;
-}
-
-KnittingStateLM21::CanonicalTransitionIterator::CanonicalTransitionIterator(
-    const KnittingStateLM21& prev
+KnittingStateLM21::TransitionIterator::TransitionIterator(
+    const KnittingStateLM21& prev,
+    bool canonicalize
 ) :
+    canonicalize(canonicalize),
     next_uncanonical(prev),
     prev(prev),
     next(prev)
@@ -351,7 +298,7 @@ KnittingStateLM21::CanonicalTransitionIterator::CanonicalTransitionIterator(
     xfer_command = "xfer none";
 }
 
-void KnittingStateLM21::CanonicalTransitionIterator::increment_xfers() {
+void KnittingStateLM21::TransitionIterator::increment_xfers() {
     next_uncanonical = prev;
 
     for (unsigned int i = 0; i < xfers.size(); i++) {
@@ -371,17 +318,22 @@ void KnittingStateLM21::CanonicalTransitionIterator::increment_xfers() {
     xfer_command = "xfer";
 
     for (unsigned int i = 0; i < xfers.size(); i++) {
-        if (xfers[i] == 1) {
-            next_uncanonical.transfer(xfer_is[i], false);
-            xfer_command += " b" + std::to_string(i);
+        if (xfers[i] == 0) {
+            continue;
         }
-        else if (xfers[i] == 2) {
-            next_uncanonical.transfer(xfer_is[i], true);
-            xfer_command += " f" + std::to_string(i);
+        bool to_front = xfers[i] == 2;
+
+        if (!to_front && prev.loop_count(NeedleLabel(true, xfer_is[i])) == 0) {
+            // front needle has no loops, so transfer to front instead
+            to_front = true;
         }
+
+        next_uncanonical.transfer(xfer_is[i], to_front);
+        xfer_command += (to_front ? " f" : " b") + std::to_string(i);
     }
 }
-bool KnittingStateLM21::CanonicalTransitionIterator::try_next() {
+
+bool KnittingStateLM21::TransitionIterator::try_next() {
     if (racking > prev.machine.max_racking) {
         increment_xfers();
         racking = prev.machine.min_racking;
@@ -394,7 +346,7 @@ bool KnittingStateLM21::CanonicalTransitionIterator::try_next() {
 
     next = next_uncanonical;
     good = next.rack(racking);
-    if (next.canonicalize() && next == *prev.target) {
+    if (canonicalize && next.canonicalize() && next == *prev.target) {
         weight = 2;
     }
     else {
@@ -404,7 +356,7 @@ bool KnittingStateLM21::CanonicalTransitionIterator::try_next() {
 
     return good;
 }
-bool KnittingStateLM21::CanonicalTransitionIterator::has_next() {
+bool KnittingStateLM21::TransitionIterator::has_next() {
     while (!done) {
         if (try_next()) {
             return true;

@@ -40,17 +40,18 @@ int main () {
 
     auto result = search::a_star(
         source.all_rackings(), target,
-        &State::adjacent, &State::braid_heuristic
+        &State::canonical_adjacent, &State::log_heuristic
     );
 
     std::cout << "Tree size: " << result.search_tree_size << std::endl;
     std::cout << "Path length: " << result.path_length << std::endl;
     std::cout << "Seconds taken: " << result.seconds_taken << std::endl;
+    std::cout << "Nodes per second: " << result.search_tree_size / result.seconds_taken << std::endl;
     if (result.path.size() > 0) {
-        std::cout << "rack " << result.path.back().prev.racking() << std::endl;
+        std::cout << "  rack " << result.path.back().prev.racking() << std::endl;
     }
     for (const auto& t : result.path) {
-        std::cout << t.command << std::endl;
+        std::cout << "  " << t.command << std::endl;
     }
 
     return 0;

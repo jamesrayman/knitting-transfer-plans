@@ -251,20 +251,23 @@ bool KnittingState::transfer(int loc, bool to_front) {
     NeedleLabel back_needle = NeedleLabel(false, loc - machine.racking);
     NeedleLabel front_needle = NeedleLabel(true, loc);
 
-    // find which needle this is
-    int j = 0;
-    for (int i = 0; i < 2*machine.width; i++) {
-        NeedleLabel needle = machine[i];
-        if (!needle.front && needle.i == loc - machine.racking) {
-            break;
-        }
-        if (loop_count(needle) > 0) {
-            j++;
-        }
-    }
-
     if (loop_count(front_needle) > 0 && loop_count(back_needle) > 0) {
-        if (destination(front_needle) != destination(back_needle) || !braid.CanMerge(j+1)) {
+        if (destination(front_needle) != destination(back_needle)) {
+            return false;
+        }
+
+        // find which needle this is
+        int j = 0;
+        for (int i = 0; i < 2*machine.width; i++) {
+            NeedleLabel needle = machine[i];
+            if (!needle.front && needle.i == loc - machine.racking) {
+                break;
+            }
+            if (loop_count(needle) > 0) {
+                j++;
+            }
+        }
+        if (!braid.CanMerge(j+1)) {
             return false;
         }
         braid = braid.Merge(j+1);
@@ -361,65 +364,10 @@ KnittingState& KnittingState::operator=(const KnittingState& other) {
 }
 
 KnittingState::TransitionIterator::TransitionIterator(
-    const KnittingState& prev
+    const KnittingState& prev,
+    bool canonicalize
 ) :
-    prev(prev),
-    next(prev)
-{
-    racking = prev.machine.min_racking;
-    xfer_i = std::max(0, prev.machine.racking);
-    to_front = false;
-    good = false;
-}
-
-bool KnittingState::TransitionIterator::try_next() {
-    if (good) { // if `good` is set, it means the previous transition
-                // worked and we need to reset `next`.
-        next = prev;
-    }
-
-    if (racking <= prev.machine.max_racking) {
-        weight = 1;
-        command = "rack " + std::to_string(racking);
-
-        good = next.rack(racking);
-        racking++;
-    }
-    else if (to_front) {
-        weight = 0;
-        command = "xfer_to_front " + std::to_string(xfer_i);
-
-        good = next.transfer(xfer_i, to_front);
-        if (prev.target != nullptr && next == *prev.target) {
-            weight = 1;
-        }
-        to_front = false;
-        xfer_i++;
-    }
-    else {
-        weight = 0;
-        command = "xfer_to_back " + std::to_string(xfer_i);
-
-        good = next.transfer(xfer_i, to_front);
-        if (prev.target != nullptr && next == *prev.target) {
-            weight = 1;
-        }
-        to_front = true;
-    }
-    return good;
-}
-bool KnittingState::TransitionIterator::has_next() {
-    while (xfer_i < prev.machine.width + std::min(0, prev.machine.racking)) {
-        if (try_next()) {
-            return true;
-        }
-    }
-    return false;
-}
-
-KnittingState::CanonicalTransitionIterator::CanonicalTransitionIterator(
-    const KnittingState& prev
-) :
+    canonicalize(canonicalize),
     next_uncanonical(prev),
     prev(prev),
     next(prev)
@@ -446,7 +394,7 @@ KnittingState::CanonicalTransitionIterator::CanonicalTransitionIterator(
     xfer_command = "xfer none";
 }
 
-void KnittingState::CanonicalTransitionIterator::increment_xfers() {
+void KnittingState::TransitionIterator::increment_xfers() {
     next_uncanonical = prev;
 
     for (unsigned int i = 0; i < xfers.size(); i++) {
@@ -466,18 +414,22 @@ void KnittingState::CanonicalTransitionIterator::increment_xfers() {
     xfer_command = "xfer";
 
     for (unsigned int i = 0; i < xfers.size(); i++) {
-        if (xfers[i] == 1) {
-            next_uncanonical.transfer(xfer_is[i], false);
-            xfer_command += " b" + std::to_string(i);
+        if (xfers[i] == 0) {
+            continue;
         }
-        else if (xfers[i] == 2) {
-            next_uncanonical.transfer(xfer_is[i], true);
-            xfer_command += " f" + std::to_string(i);
+        bool to_front = xfers[i] == 2;
+
+        if (!to_front && prev.loop_count(NeedleLabel(true, xfer_is[i])) == 0) {
+            // front needle has no loops, so transfer to front instead
+            to_front = true;
         }
+
+        next_uncanonical.transfer(xfer_is[i], to_front);
+        xfer_command += (to_front ? " f" : " b") + std::to_string(i);
     }
 }
 
-bool KnittingState::CanonicalTransitionIterator::try_next() {
+bool KnittingState::TransitionIterator::try_next() {
     if (racking > prev.machine.max_racking) {
         increment_xfers();
         racking = prev.machine.min_racking;
@@ -490,7 +442,7 @@ bool KnittingState::CanonicalTransitionIterator::try_next() {
 
     next = next_uncanonical;
     good = next.rack(racking);
-    if (next.canonicalize() && next == *prev.target) {
+    if (canonicalize && next.canonicalize() && next == *prev.target) {
         // if canonicalize makes us hit our target, then we need to
         // count it as an extra transfer pass
         weight = 2;
@@ -502,7 +454,7 @@ bool KnittingState::CanonicalTransitionIterator::try_next() {
 
     return good;
 }
-bool KnittingState::CanonicalTransitionIterator::has_next() {
+bool KnittingState::TransitionIterator::has_next() {
     while (!done) {
         if (try_next()) {
             return true;
@@ -555,11 +507,11 @@ std::vector<KnittingState> KnittingState::all_canonical_rackings() {
 }
 
 KnittingState::TransitionIterator KnittingState::adjacent() const {
-    return KnittingState::TransitionIterator(*this);
+    return KnittingState::TransitionIterator(*this, false);
 }
 
-KnittingState::CanonicalTransitionIterator KnittingState::canonical_adjacent() const {
-    return KnittingState::CanonicalTransitionIterator(*this);
+KnittingState::TransitionIterator KnittingState::canonical_adjacent() const {
+    return KnittingState::TransitionIterator(*this, true);
 }
 
 bool KnittingState::canonicalize() {
