@@ -251,23 +251,12 @@ unsigned int KnittingStateLM21::braid_heuristic() const {
     return target_heuristic();
 }
 unsigned int KnittingStateLM21::log_heuristic() const {
-    unsigned int n = std::popcount(offsets());
+    auto x = log_offsets(offsets());
 
-    if (n == 0) {
-        return target_heuristic();
-    }
-
-    // calculate x = floor(log_2(n+1))
-    n++;
-    int x = 0;
-    while (n > 1) {
-        x++;
-        n >>= 1;
-    }
-    return x;
+    return x == 0 ? target_heuristic() : x;
 }
 unsigned int KnittingStateLM21::prebuilt_heuristic() const {
-    return prebuilt::query(offsets());
+    return prebuilt::query(offsets(), machine.racking);
 }
 unsigned int KnittingStateLM21::braid_log_heuristic() const {
     return std::max((unsigned int)braid.FactorList.size(), log_heuristic());

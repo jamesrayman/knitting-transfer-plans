@@ -20,4 +20,6 @@ public:
     double stop();
 };
 
+unsigned int log_offsets(unsigned long long);
+
 #endif

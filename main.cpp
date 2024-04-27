@@ -1,6 +1,7 @@
 #include "knitting.h"
 #include "search.h"
 #include "testgen.h"
+#include "prebuilt.h"
 #include <iostream>
 #include <random>
 
@@ -8,6 +9,8 @@ namespace cb = CBraid;
 namespace kn = knitting;
 
 int main () {
+    prebuilt::construct_table(8, -5, 5);
+
     /* Example manual usage */
     // kn::KnittingMachine m (5, -4, 4);
     //
@@ -53,16 +56,16 @@ int main () {
 
     kn::KnittingMachine machine (10, -5, 5);
 
-    std::mt19937 rng(0);
-    for (int i = 0; i < 100; i++) {
+    std::mt19937 rng(10);
+    for (int i = 0; i < 1000; i++) {
         kn::TestCase test_case = flat_lace(machine, 8, 3, rng);
 
-        auto result_1 = test_case.test(true, &kn::KnittingState::braid_log_heuristic);
+        auto result_1 = test_case.test(true, &kn::KnittingState::braid_prebuilt_heuristic);
         std::cout << result_1.path_length << " "
                   << result_1.search_tree_size << " "
                   << result_1.seconds_taken << std::endl;
 
-        auto result_2 = test_case.test_lm21(true, &kn::KnittingStateLM21::braid_log_heuristic);
+        auto result_2 = test_case.test(true, &kn::KnittingState::braid_log_heuristic);
         std::cout << result_2.path_length << " "
                   << result_2.search_tree_size << " "
                   << result_2.seconds_taken << std::endl;

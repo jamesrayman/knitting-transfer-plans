@@ -6,7 +6,7 @@ namespace prebuilt {
 
 void construct_table(int, int, int);
 
-unsigned int query(unsigned long long);
+unsigned int query(unsigned long long, int);
 
 }
 
