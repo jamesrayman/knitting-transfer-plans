@@ -6,13 +6,13 @@
 
 namespace knitting {
 
-LoopSlackConstraint::LoopSlackConstraint(int loop_1, int loop_2, int limit) :
+LoopSlackConstraint::LoopSlackConstraint(char loop_1, char loop_2, char limit) :
     loop_1(loop_1),
     loop_2(loop_2),
     limit(limit)
 { }
 
-bool LoopSlackConstraint::respected(NeedleLabel needle_1, NeedleLabel needle_2, int racking) const {
+bool LoopSlackConstraint::respected(NeedleLabel needle_1, NeedleLabel needle_2, char racking) const {
     return abs(needle_1.location(racking) - needle_2.location(racking)) <= limit;
 }
 
@@ -22,8 +22,8 @@ KnittingStateLM21::KnittingStateLM21() :
 { }
 KnittingStateLM21::KnittingStateLM21(
     const KnittingMachine machine,
-    const std::vector<int>& back_loop_counts,
-    const std::vector<int>& front_loop_counts,
+    const std::vector<char>& back_loop_counts,
+    const std::vector<char>& front_loop_counts,
     const cb::ArtinBraid& braid,
     const std::vector<SlackConstraint>& slack_constraints,
     KnittingStateLM21* target
@@ -34,9 +34,9 @@ KnittingStateLM21::KnittingStateLM21(
 {
     auto permutation = braid.GetPerm().Inverse();
 
-    for (int i = 0, j = 0; i < 2*machine.width; i++) {
+    for (char i = 0, j = 0; i < 2*machine.width; i++) {
         NeedleLabel needle = machine[i];
-        const std::vector<int>& loop_counts = needle.front ? front_loop_counts : back_loop_counts;
+        const std::vector<char>& loop_counts = needle.front ? front_loop_counts : back_loop_counts;
         int loop_count = loop_counts[needle.i];
 
         for (int k = 0; k < loop_count; k++, j++) {
@@ -64,7 +64,7 @@ KnittingStateLM21::KnittingStateLM21(const KnittingStateLM21& other) :
     target(other.target)
 { }
 
-int KnittingStateLM21::racking() const {
+char KnittingStateLM21::racking() const {
     return machine.racking;
 }
 
@@ -77,8 +77,8 @@ bool KnittingStateLM21::needle_empty(NeedleLabel needle) const {
     return true;
 }
 
-int KnittingStateLM21::loop_count(NeedleLabel needle) const {
-    int count = 0;
+char KnittingStateLM21::loop_count(NeedleLabel needle) const {
+    char count = 0;
     for (const auto& n : loop_locations) {
         if (n == needle) {
             count++;
@@ -95,14 +95,14 @@ void KnittingStateLM21::set_target(KnittingStateLM21* t) {
         }
     }
 }
-bool KnittingStateLM21::can_transfer(int loc) const {
+bool KnittingStateLM21::can_transfer(char loc) const {
     NeedleLabel back_needle = NeedleLabel(false, loc - machine.racking);
     NeedleLabel front_needle = NeedleLabel(true, loc);
 
     return !needle_empty(front_needle) || !needle_empty(back_needle);
 }
 
-bool KnittingStateLM21::rack(int new_racking) {
+bool KnittingStateLM21::rack(char new_racking) {
     if (new_racking > machine.max_racking || new_racking < machine.min_racking) {
         return false;
     }
@@ -121,16 +121,16 @@ bool KnittingStateLM21::rack(int new_racking) {
     cb::ArtinFactor f(braid.Index(), cb::ArtinFactor::Uninitialize, new_racking < machine.racking);
     std::vector<int> needle_positions (2*machine.width);
 
-    for (int i = 0, j = 0; i < 2*machine.width; i++) {
+    for (char i = 0, j = 0; i < 2*machine.width; i++) {
         NeedleLabel needle = machine[i];
         needle_positions[needle.id()] = j;
         j += loop_count(needle);
     }
     machine.racking = new_racking;
 
-    for (int i = 0, j = 0; i < 2*machine.width; i++) {
+    for (char i = 0, j = 0; i < 2*machine.width; i++) {
         NeedleLabel needle = machine[i];
-        int count = loop_count(needle);
+        char count = loop_count(needle);
 
         for (int k = 0; k < count; k++, j++) {
             f[j + 1] = needle_positions[needle.id()] + k + 1;
@@ -142,7 +142,7 @@ bool KnittingStateLM21::rack(int new_racking) {
 
     return true;
 }
-bool KnittingStateLM21::transfer(int loc, bool to_front) {
+bool KnittingStateLM21::transfer(char loc, bool to_front) {
     NeedleLabel back_needle = NeedleLabel(false, loc - machine.racking);
     NeedleLabel front_needle = NeedleLabel(true, loc);
 
@@ -179,9 +179,9 @@ KnittingStateLM21& KnittingStateLM21::operator=(const KnittingStateLM21& other) 
 
 std::vector<KnittingStateLM21> KnittingStateLM21::all_rackings() {
     std::vector<KnittingStateLM21> v;
-    int old_racking = machine.racking;
+    char old_racking = machine.racking;
 
-    for (int r = machine.min_racking; r <= machine.max_racking; r++) {
+    for (char r = machine.min_racking; r <= machine.max_racking; r++) {
         if (rack(r)) {
             v.push_back(*this);
         }
@@ -211,7 +211,9 @@ bool KnittingStateLM21::canonicalize() {
     }
 
     for (
-        int i = std::max(0, machine.racking); i < machine.width + std::min(0, machine.racking); i++
+        char i = std::max('\0', machine.racking);
+        i < machine.width + std::min('\0', machine.racking);
+        i++
     ) {
         NeedleLabel front_needle = NeedleLabel(true, i);
 
@@ -225,7 +227,7 @@ bool KnittingStateLM21::canonicalize() {
 unsigned long long KnittingStateLM21::offsets() const {
     unsigned long long offs = 0;
 
-    for (unsigned int i = 0; i < loop_locations.size(); i++) {
+    for (unsigned char i = 0; i < loop_locations.size(); i++) {
         int off = loop_locations[i].offset(target->loop_locations[i]);
         if (off != 0 && off < 32 && off >= -32) {
             offs |= 1ULL << (off+32);
@@ -246,7 +248,7 @@ unsigned int KnittingStateLM21::target_heuristic() const {
 }
 unsigned int KnittingStateLM21::braid_heuristic() const {
     if (braid.FactorList.size() > 0) {
-        return braid.FactorList.size();
+        return (unsigned int)braid.FactorList.size();
     }
     return target_heuristic();
 }
@@ -279,8 +281,8 @@ KnittingStateLM21::TransitionIterator::TransitionIterator(
     good = false;
 
     for (
-        int i = std::max(0, prev.machine.racking);
-        i < prev.machine.width + std::min(0, prev.machine.racking);
+        char i = std::max('\0', prev.machine.racking);
+        i < prev.machine.width + std::min('\0', prev.machine.racking);
         i++
     ) {
         if (prev.can_transfer(i)) {
@@ -369,7 +371,7 @@ KnittingStateLM21 KnittingStateLM21::TransitionIterator::random(std::mt19937& rn
     int valid_so_far = 0;
 
     while (has_next()) {
-        std::uniform_int_distribution<std::mt19937::result_type> dist(0, valid_so_far);
+        std::uniform_int_distribution<int> dist(0, valid_so_far);
         if (dist(rng) == 0) {
             state = next;
         }

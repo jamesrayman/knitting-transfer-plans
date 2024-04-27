@@ -32,9 +32,9 @@ class InvalidBraidRankException { };
 class NeedleLabel {
 public:
     bool front;
-    int i;
+    char i;
 
-    NeedleLabel(bool = false, int = -1);
+    NeedleLabel(bool = false, char = -1);
     NeedleLabel(const NeedleLabel&);
 
     bool operator==(const NeedleLabel&) const;
@@ -43,7 +43,7 @@ public:
     NeedleLabel& operator=(const NeedleLabel&);
 
     int id() const;
-    int location(int) const;
+    int location(char) const;
     int offset(NeedleLabel) const;
 
     friend std::ostream& operator<<(std::ostream&, const NeedleLabel&);
@@ -52,33 +52,33 @@ public:
 class Needle {
 public:
     NeedleLabel destination;
-    int count;
+    char count;
 
-    Needle(int, NeedleLabel = NeedleLabel());
+    Needle(char, NeedleLabel = NeedleLabel());
     Needle(const Needle&);
 };
 
 class KnittingMachine {
 public:
-    int width;
-    int min_racking;
-    int max_racking;
-    int racking;
+    char width;
+    char min_racking;
+    char max_racking;
+    char racking;
 
-    KnittingMachine(int = 1, int = 0, int = 0, int = 0);
+    KnittingMachine(char = 1, char = 0, char = 0, char = 0);
     KnittingMachine(const KnittingMachine&);
 
-    NeedleLabel operator[](int) const;
+    NeedleLabel operator[](char) const;
 };
 
 class SlackConstraint {
 public:
     NeedleLabel needle_1;
     NeedleLabel needle_2;
-    int limit;
+    char limit;
 
-    SlackConstraint(NeedleLabel, NeedleLabel, int);
-    bool respected(int) const;
+    SlackConstraint(NeedleLabel, NeedleLabel, char);
+    bool respected(char) const;
     void replace(NeedleLabel, NeedleLabel);
 
     SlackConstraint& operator=(const SlackConstraint&);
@@ -103,29 +103,29 @@ public:
     KnittingState();
     KnittingState(
         const KnittingMachine,
-        const std::vector<int>&,
-        const std::vector<int>&,
+        const std::vector<char>&,
+        const std::vector<char>&,
         const cb::ArtinBraid&,
         const std::vector<SlackConstraint>&,
         KnittingState* = nullptr
     );
     KnittingState(const KnittingState&);
 
-    int racking() const;
+    char racking() const;
 
     void set_target(KnittingState*);
 
-    int& loop_count(const NeedleLabel&);
-    int loop_count(const NeedleLabel&) const;
+    char& loop_count(const NeedleLabel&);
+    char loop_count(const NeedleLabel&) const;
 
     NeedleLabel& destination(const NeedleLabel&);
     NeedleLabel destination(const NeedleLabel&) const;
 
     NeedleLabel needle_with_braid_rank(int) const;
-    bool can_transfer(int) const;
+    bool can_transfer(char) const;
 
-    bool transfer(int, bool);
-    bool rack(int);
+    bool transfer(char, bool);
+    bool rack(char);
 
     bool operator==(const KnittingState&) const;
     bool operator!=(const KnittingState&) const;
@@ -155,10 +155,10 @@ public:
 };
 
 class KnittingState::TransitionIterator {
-    int racking;
-    std::vector<int> xfer_is;
+    char racking;
+    std::vector<char> xfer_is;
     std::vector<bool> xfer_types; // false => 2 choices; true => 3 choices
-    std::vector<int> xfers; // xfer actions: 0 => nothing; 1 => xfer_to_back; 2 => xfer_to_front
+    std::vector<char> xfers; // xfer actions: 0 => nothing; 1 => xfer_to_back; 2 => xfer_to_front
     std::string xfer_command;
     bool canonicalize;
     bool good;
@@ -193,12 +193,12 @@ public:
 
 class LoopSlackConstraint {
 public:
-    int loop_1;
-    int loop_2;
-    int limit;
+    char loop_1;
+    char loop_2;
+    char limit;
 
-    LoopSlackConstraint(int, int, int);
-    bool respected(NeedleLabel, NeedleLabel, int) const;
+    LoopSlackConstraint(char, char, char);
+    bool respected(NeedleLabel, NeedleLabel, char) const;
 };
 
 class KnittingStateLM21 {
@@ -219,23 +219,23 @@ public:
     KnittingStateLM21();
     KnittingStateLM21(
         const KnittingMachine,
-        const std::vector<int>&,
-        const std::vector<int>&,
+        const std::vector<char>&,
+        const std::vector<char>&,
         const cb::ArtinBraid&,
         const std::vector<SlackConstraint>&,
         KnittingStateLM21* = nullptr
     );
     KnittingStateLM21(const KnittingStateLM21&);
 
-    int racking() const;
+    char racking() const;
     bool needle_empty(NeedleLabel) const;
-    int loop_count(NeedleLabel) const;
+    char loop_count(NeedleLabel) const;
 
     void set_target(KnittingStateLM21*);
-    bool can_transfer(int) const;
+    bool can_transfer(char) const;
 
-    bool rack(int);
-    bool transfer(int, bool);
+    bool rack(char);
+    bool transfer(char, bool);
 
     bool operator==(const KnittingStateLM21&) const;
     bool operator!=(const KnittingStateLM21&) const;
@@ -265,10 +265,10 @@ public:
 };
 
 class KnittingStateLM21::TransitionIterator {
-    int racking;
-    std::vector<int> xfer_is;
+    char racking;
+    std::vector<char> xfer_is;
     std::vector<bool> xfer_types;
-    std::vector<int> xfers;
+    std::vector<char> xfers;
     std::string xfer_command;
     bool canonicalize;
     bool good;

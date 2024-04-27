@@ -11,7 +11,7 @@ int main () {
     [&test_needle_order_count](const KnittingMachine& machine, const std::string& order) {
         test_needle_order_count++;
         std::string actual;
-        for (int i = 0; i < 2*machine.width; i++) {
+        for (char i = 0; i < 2*machine.width; i++) {
             NeedleLabel needle = machine[i];
             actual += needle.front ? 'f' : 'b';
             actual += std::to_string(needle.i);

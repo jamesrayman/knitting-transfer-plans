@@ -5,7 +5,7 @@
 
 namespace knitting {
 
-NeedleLabel::NeedleLabel(bool front, int i) :
+NeedleLabel::NeedleLabel(bool front, char i) :
      front(front),
      i(i)
 { }
@@ -32,7 +32,7 @@ NeedleLabel& NeedleLabel::operator=(const NeedleLabel& other) {
 int NeedleLabel::id() const {
     return front ? 2*i + 1 : 2*i;
 }
-int NeedleLabel::location(int racking) const {
+int NeedleLabel::location(char racking) const {
     return front ? i : i + racking;
 }
 int NeedleLabel::offset(NeedleLabel destination) const {
@@ -43,7 +43,7 @@ std::ostream& operator<<(std::ostream& o, const NeedleLabel& needle_label) {
     return o << (needle_label.front ? 'f' : 'b') << needle_label.i;
 }
 
-Needle::Needle(int count, NeedleLabel destination) :
+Needle::Needle(char count, NeedleLabel destination) :
     destination(destination),
     count(count)
 { }
@@ -52,7 +52,7 @@ Needle::Needle(const Needle& other) :
     count(other.count)
 { }
 
-KnittingMachine::KnittingMachine(int width, int min_racking, int max_racking, int racking) :
+KnittingMachine::KnittingMachine(char width, char min_racking, char max_racking, char racking) :
     width(width),
     min_racking(min_racking),
     max_racking(max_racking),
@@ -73,14 +73,14 @@ KnittingMachine::KnittingMachine(const KnittingMachine& other) :
     racking(other.racking)
 { }
 
-NeedleLabel KnittingMachine::operator[](int i) const {
+NeedleLabel KnittingMachine::operator[](char i) const {
     if (i < abs(racking)) {
         return NeedleLabel(racking > 0, i);
     }
     if (i >= 2*width - abs(racking)) {
         return NeedleLabel(racking < 0, i - width);
     }
-    i -= abs(racking);
+    i -= (char)abs(racking);
     if (i % 2 == 0) {
         if (racking > 0) {
             return NeedleLabel(false, i/2);
@@ -99,7 +99,7 @@ NeedleLabel KnittingMachine::operator[](int i) const {
     }
 }
 
-SlackConstraint::SlackConstraint(NeedleLabel needle_1, NeedleLabel needle_2, int limit) :
+SlackConstraint::SlackConstraint(NeedleLabel needle_1, NeedleLabel needle_2, char limit) :
     needle_1(needle_1),
     needle_2(needle_2),
     limit(limit)
@@ -111,7 +111,7 @@ SlackConstraint& SlackConstraint::operator=(const SlackConstraint& other) {
     return *this;
 }
 
-bool SlackConstraint::respected(int racking) const {
+bool SlackConstraint::respected(char racking) const {
     return abs(needle_1.location(racking) - needle_2.location(racking)) <= limit;
 }
 void SlackConstraint::replace(NeedleLabel from, NeedleLabel to) {
@@ -129,8 +129,8 @@ KnittingState::KnittingState() :
 
 KnittingState::KnittingState(
     const KnittingMachine machine,
-    const std::vector<int>& back_loop_counts,
-    const std::vector<int>& front_loop_counts,
+    const std::vector<char>& back_loop_counts,
+    const std::vector<char>& front_loop_counts,
     const cb::ArtinBraid& braid,
     const std::vector<SlackConstraint>& slack_constraints,
     KnittingState* target
@@ -139,7 +139,7 @@ KnittingState::KnittingState(
     braid(braid),
     slack_constraints(slack_constraints)
 {
-    for (int i = 0; i < machine.width; i++) {
+    for (char i = 0; i < machine.width; i++) {
         back_needles.emplace_back(back_loop_counts[i]);
         front_needles.emplace_back(front_loop_counts[i]);
     }
@@ -161,7 +161,7 @@ void KnittingState::calculate_destinations() {
     NeedleLabel dest;
     int left = 0;
     int j = -1;
-    for (int i = 0; i < 2*machine.width; i++) {
+    for (char i = 0; i < 2*machine.width; i++) {
         NeedleLabel needle = machine[i];
 
         while (loop_count(needle) > left) {
@@ -178,7 +178,7 @@ void KnittingState::calculate_destinations() {
     }
 }
 
-int KnittingState::racking() const {
+char KnittingState::racking() const {
     return machine.racking;
 }
 
@@ -193,10 +193,10 @@ void KnittingState::set_target(KnittingState* t) {
     }
 }
 
-int& KnittingState::loop_count(const NeedleLabel& n) {
+char& KnittingState::loop_count(const NeedleLabel& n) {
     return n.front ? front_needles[n.i].count : back_needles[n.i].count;
 }
-int KnittingState::loop_count(const NeedleLabel& n) const {
+char KnittingState::loop_count(const NeedleLabel& n) const {
     return n.front ? front_needles[n.i].count : back_needles[n.i].count;
 }
 NeedleLabel& KnittingState::destination(const NeedleLabel& n) {
@@ -207,7 +207,7 @@ NeedleLabel KnittingState::destination(const NeedleLabel& n) const {
 }
 NeedleLabel KnittingState::needle_with_braid_rank(int rank) const {
     int j = -1;
-    for (int i = 0; i < 2*machine.width; i++) {
+    for (char i = 0; i < 2*machine.width; i++) {
         NeedleLabel needle = machine[i];
         if (loop_count(needle) > 0) {
             j++;
@@ -219,7 +219,7 @@ NeedleLabel KnittingState::needle_with_braid_rank(int rank) const {
     throw InvalidBraidRankException();
 }
 
-bool KnittingState::can_transfer(int loc) const {
+bool KnittingState::can_transfer(char loc) const {
     NeedleLabel back_needle = NeedleLabel(false, loc - machine.racking);
     NeedleLabel front_needle = NeedleLabel(true, loc);
 
@@ -235,7 +235,7 @@ bool KnittingState::can_transfer(int loc) const {
 
     // find which needle this is
     int j = 0;
-    for (int i = 0; i < 2*machine.width; i++) {
+    for (char i = 0; i < 2*machine.width; i++) {
         NeedleLabel needle = machine[i];
         if (!needle.front && needle.i == loc - machine.racking) {
             break;
@@ -249,7 +249,7 @@ bool KnittingState::can_transfer(int loc) const {
     return braid.CanMerge(j+1);
 }
 
-bool KnittingState::transfer(int loc, bool to_front) {
+bool KnittingState::transfer(char loc, bool to_front) {
     NeedleLabel back_needle = NeedleLabel(false, loc - machine.racking);
     NeedleLabel front_needle = NeedleLabel(true, loc);
 
@@ -260,7 +260,7 @@ bool KnittingState::transfer(int loc, bool to_front) {
 
         // find which needle this is
         int j = 0;
-        for (int i = 0; i < 2*machine.width; i++) {
+        for (char i = 0; i < 2*machine.width; i++) {
             NeedleLabel needle = machine[i];
             if (!needle.front && needle.i == loc - machine.racking) {
                 break;
@@ -297,7 +297,7 @@ bool KnittingState::transfer(int loc, bool to_front) {
     return true;
 }
 
-bool KnittingState::rack(int new_racking) {
+bool KnittingState::rack(char new_racking) {
     if (new_racking > machine.max_racking || new_racking < machine.min_racking) {
         return false;
     }
@@ -314,7 +314,7 @@ bool KnittingState::rack(int new_racking) {
     cb::ArtinFactor f(braid.Index(), cb::ArtinFactor::Uninitialize, new_racking < machine.racking);
     std::vector<int> needle_positions (2*machine.width);
 
-    for (int i = 0, j = 0; i < 2*machine.width; i++) {
+    for (char i = 0, j = 0; i < 2*machine.width; i++) {
         NeedleLabel needle = machine[i];
         if (loop_count(needle) > 0) {
             needle_positions[needle.id()] = j;
@@ -322,7 +322,7 @@ bool KnittingState::rack(int new_racking) {
         }
     }
     machine.racking = new_racking;
-    for (int i = 0, j = 0; i < 2*machine.width; i++) {
+    for (char i = 0, j = 0; i < 2*machine.width; i++) {
         NeedleLabel needle = machine[i];
         if (loop_count(needle) > 0) {
             f[j + 1] = needle_positions[needle.id()] + 1;
@@ -341,7 +341,7 @@ bool KnittingState::operator==(const KnittingState& other) const {
         return false;
     }
 
-    for (int i = 0; i < machine.width; i++) {
+    for (char i = 0; i < machine.width; i++) {
         if (
             back_needles[i].count != other.back_needles[i].count ||
             front_needles[i].count != other.front_needles[i].count
@@ -380,8 +380,8 @@ KnittingState::TransitionIterator::TransitionIterator(
     good = false;
 
     for (
-        int i = std::max(0, prev.machine.racking);
-        i < prev.machine.width + std::min(0, prev.machine.racking);
+        char i = std::max('\0', prev.machine.racking);
+        i < prev.machine.width + std::min('\0', prev.machine.racking);
         i++
     ) {
         if (prev.can_transfer(i)) {
@@ -490,9 +490,9 @@ KnittingState::Backpointer& KnittingState::Backpointer::operator=(const Knitting
 
 std::vector<KnittingState> KnittingState::all_rackings() {
     std::vector<KnittingState> v;
-    int old_racking = machine.racking;
+    char old_racking = machine.racking;
 
-    for (int r = machine.min_racking; r <= machine.max_racking; r++) {
+    for (char r = machine.min_racking; r <= machine.max_racking; r++) {
         if (rack(r)) {
             v.push_back(*this);
         }
@@ -525,7 +525,9 @@ bool KnittingState::canonicalize() {
     }
 
     for (
-        int i = std::max(0, machine.racking); i < machine.width + std::min(0, machine.racking); i++
+        char i = std::max('\0', machine.racking);
+        i < machine.width + std::min('\0', machine.racking);
+        i++
     ) {
         NeedleLabel back_needle = NeedleLabel(false, i - machine.racking);
         NeedleLabel front_needle = NeedleLabel(true, i);
@@ -550,7 +552,7 @@ unsigned int KnittingState::target_heuristic() const {
 
 unsigned int KnittingState::braid_heuristic() const {
     if (braid.FactorList.size() > 0) {
-        return braid.FactorList.size();
+        return (unsigned int)braid.FactorList.size();
     }
     return target_heuristic();
 }
@@ -558,7 +560,7 @@ unsigned int KnittingState::braid_heuristic() const {
 unsigned long long KnittingState::offsets() const {
     unsigned long long offs = 0;
 
-    for (int i = 0; i < 2*machine.width; i++) {
+    for (char i = 0; i < 2*machine.width; i++) {
         NeedleLabel needle = machine[i];
         if (loop_count(needle) == 0) {
             continue;
@@ -592,12 +594,12 @@ unsigned int KnittingState::braid_prebuilt_heuristic() const {
 }
 
 std::ostream& operator<<(std::ostream& o, const knitting::KnittingState& state) {
-    for (int i = 0; i < state.machine.racking; i++) {
+    for (char i = 0; i < state.machine.racking; i++) {
         o << "  ";
     }
     o << "[";
 
-    for (int i = 0; i < state.machine.width; i++) {
+    for (char i = 0; i < state.machine.width; i++) {
         if (i > 0) {
             o << " ";
         }
@@ -605,11 +607,11 @@ std::ostream& operator<<(std::ostream& o, const knitting::KnittingState& state) 
     }
     o << "]\n";
 
-    for (int i = 0; i > state.machine.racking; i--) {
+    for (char i = 0; i > state.machine.racking; i--) {
         o << "  ";
     }
     o << "[";
-    for (int i = 0; i < state.machine.width; i++) {
+    for (char i = 0; i < state.machine.width; i++) {
         if (i > 0) {
             o << " ";
         }

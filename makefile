@@ -4,7 +4,7 @@ src = $(wildcard *.cpp)
 obj = $(filter-out main.o test.o,$(src:.cpp=.o))
 
 includes = -I../cbraid/include -L../cbraid/lib
-CFLAGS = -Wall -Werror -Wpedantic -lcbraid -std=c++20 -O3
+CFLAGS = -Wall -Werror -Wpedantic -Wconversion -lcbraid -std=c++20 -O3
 
 
 all: bin/test bin/main

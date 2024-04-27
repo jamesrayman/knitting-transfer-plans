@@ -6,10 +6,10 @@ namespace knitting {
 
 TestCase::TestCase(
     const KnittingMachine machine,
-    const std::vector<int>& source_back_needles,
-    const std::vector<int>& source_front_needles,
-    const std::vector<int>& target_back_needles,
-    const std::vector<int>& target_front_needles,
+    const std::vector<char>& source_back_needles,
+    const std::vector<char>& source_front_needles,
+    const std::vector<char>& target_back_needles,
+    const std::vector<char>& target_front_needles,
     const cb::ArtinBraid& source_braid,
     const std::vector<SlackConstraint>& slack_constraints
 ) :
@@ -23,13 +23,13 @@ TestCase::TestCase(
 {
     target_needle_count = 0;
 
-    for (int x : target_back_needles) {
+    for (char x : target_back_needles) {
         if (x > 0) {
             target_needle_count++;
         }
     }
 
-    for (int x : target_front_needles) {
+    for (char x : target_front_needles) {
         if (x > 0) {
             target_needle_count++;
         }
@@ -141,16 +141,16 @@ std::ostream& operator<<(std::ostream& o, const knitting::TestCase& state) {
 
 
 TestCase flat_lace (KnittingMachine machine, int loop_count, int max_stack, std::mt19937& rng) {
-    std::uniform_int_distribution<std::mt19937::result_type> loop_skip(1, 2);
-    std::uniform_int_distribution<std::mt19937::result_type> loop_loc_dist(0, machine.width-1);
+    std::uniform_int_distribution<char> loop_skip(1, 2);
+    std::uniform_int_distribution<char> loop_loc_dist(0, machine.width-1);
 
-    std::vector<int> empty_bed(machine.width, 0);
-    std::vector<int> target_bed(machine.width, 0);
-    std::vector<int> source_bed(machine.width, 0);
+    std::vector<char> empty_bed(machine.width, 0);
+    std::vector<char> target_bed(machine.width, 0);
+    std::vector<char> source_bed(machine.width, 0);
     std::vector<SlackConstraint> slack_constraints;
 
     int loops_remaining = loop_count;
-    for (int i = 0; i < machine.width; i += loop_skip(rng)) {
+    for (char i = 0; i < machine.width; i += loop_skip(rng)) {
         source_bed[i]++;
         loops_remaining--;
 
@@ -168,7 +168,7 @@ TestCase flat_lace (KnittingMachine machine, int loop_count, int max_stack, std:
     }
 
     loops_remaining = loop_count;
-    for (int i = 0; i < machine.width; i += loop_skip(rng)) {
+    for (char i = 0; i < machine.width; i += loop_skip(rng)) {
         target_bed[i]++;
         loops_remaining--;
 
@@ -185,8 +185,8 @@ TestCase flat_lace (KnittingMachine machine, int loop_count, int max_stack, std:
         }
     }
 
-    int prev = -1;
-    for (int i = 0; i < machine.width; i++) {
+    char prev = -1;
+    for (char i = 0; i < machine.width; i++) {
         if (source_bed[i] > 0) {
             if (prev >= 0) {
                 slack_constraints.emplace_back(NeedleLabel(true, prev), NeedleLabel(true, i), 2);

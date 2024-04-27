@@ -62,7 +62,7 @@ unsigned int query(unsigned long long offsets, int racking) {
             }
         }
     }
-    return table.size();
+    return (unsigned int)table.size();
 }
 
 }

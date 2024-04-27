@@ -73,13 +73,13 @@ class SearchResult {
 public:
     const std::vector<typename State::Backpointer> path;
     const int path_length;
-    const unsigned int search_tree_size;
+    const std::size_t search_tree_size;
     double seconds_taken;
 
     SearchResult(
         const std::vector<typename State::Backpointer>& path,
         unsigned int path_length,
-        unsigned int search_tree_size,
+        std::size_t search_tree_size,
         double seconds_taken
     ) :
         path(path),
@@ -108,7 +108,7 @@ SearchResult<State> a_star(
     }
 
     auto dist_at = [&d](const State& state) {
-        return d.count(state) ? d[state] : 1e9;
+        return d.count(state) ? d[state] : 1'000'000'000;
     };
 
     while (!q.empty() && q.front <= limit) {
@@ -150,7 +150,7 @@ SearchResult<State> ida_star_search(
     unsigned int bound
 ) {
     StopWatch stop_watch;
-    unsigned int nodes_searched = 0;
+    std::size_t nodes_searched = 0;
 
     std::vector<TransitionIterator> path;
     path.reserve(bound+2);
@@ -205,7 +205,7 @@ SearchResult<State> ida_star(
     unsigned int limit = 1e9
 ) {
     StopWatch stop_watch;
-    unsigned int nodes_searched = 0;
+    std::size_t nodes_searched = 0;
 
     // edge case for when target is equal to one of the sources
     for (const State& source : sources) {
