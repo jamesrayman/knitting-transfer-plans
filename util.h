@@ -15,18 +15,9 @@ private:
     std::chrono::time_point<std::chrono::steady_clock> start_time;
 
 public:
-    StopWatch() {
-        start();
-    }
-    void start() {
-        start_time = std::chrono::steady_clock::now();
-    }
-    double stop() {
-        return std::chrono::duration<double, std::ratio<1>>(
-            std::chrono::steady_clock::now() - start_time
-        ).count();
-    }
-
+    StopWatch();
+    void start();
+    double stop();
 };
 
 #endif

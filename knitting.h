@@ -1,5 +1,6 @@
 #include "cbraid.h"
 #include <vector>
+#include <random>
 
 #ifndef KNITTING_H
 #define KNITTING_H
@@ -209,7 +210,7 @@ private:
     KnittingMachine machine;
     cb::ArtinBraid braid;
     std::vector<NeedleLabel> loop_locations;
-    const std::vector<LoopSlackConstraint>* slack_constraints;
+    std::vector<LoopSlackConstraint> slack_constraints;
     KnittingStateLM21* target;
 
     void calculate_destinations();
@@ -221,7 +222,7 @@ public:
         const std::vector<int>&,
         const std::vector<int>&,
         const cb::ArtinBraid&,
-        const std::vector<LoopSlackConstraint>&,
+        const std::vector<SlackConstraint>&,
         KnittingStateLM21* = nullptr
     );
     KnittingStateLM21(const KnittingStateLM21&);
@@ -285,6 +286,7 @@ public:
     TransitionIterator(const KnittingStateLM21&, bool);
 
     bool has_next();
+    KnittingStateLM21 random(std::mt19937&);
 };
 
 class KnittingStateLM21::Backpointer {

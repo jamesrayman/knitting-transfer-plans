@@ -244,6 +244,8 @@ bool KnittingState::can_transfer(int loc) const {
             j++;
         }
     }
+    j = braid.GetPerm().Inverse()[j+1]-1;
+
     return braid.CanMerge(j+1);
 }
 
@@ -267,6 +269,8 @@ bool KnittingState::transfer(int loc, bool to_front) {
                 j++;
             }
         }
+        j = braid.GetPerm().Inverse()[j+1]-1;
+
         if (!braid.CanMerge(j+1)) {
             return false;
         }
@@ -353,7 +357,7 @@ bool KnittingState::operator!=(const KnittingState& other) const {
 }
 
 KnittingState& KnittingState::operator=(const KnittingState& other) {
-    machine.racking = other.machine.racking;
+    machine = other.machine;
     front_needles = other.front_needles;
     back_needles = other.back_needles;
     braid = other.braid;
@@ -398,7 +402,6 @@ void KnittingState::TransitionIterator::increment_xfers() {
     next_uncanonical = prev;
 
     for (unsigned int i = 0; i < xfers.size(); i++) {
-
         if (xfers[i] == (xfer_types[i] ? 2 : 1)) {
             xfers[i] = 0;
             if (i + 1 == xfer_is.size()) {
@@ -425,7 +428,7 @@ void KnittingState::TransitionIterator::increment_xfers() {
         }
 
         next_uncanonical.transfer(xfer_is[i], to_front);
-        xfer_command += (to_front ? " f" : " b") + std::to_string(i);
+        xfer_command += (to_front ? " f" : " b") + std::to_string(xfer_is[i]);
     }
 }
 
@@ -563,7 +566,7 @@ unsigned long long KnittingState::offsets() const {
 
         int off = needle.offset(destination(needle));
         if (off != 0 && off < 32 && off >= -32) {
-            offs |= 1 << (off+32);
+            offs |= 1ULL << (off+32);
         }
     }
 
@@ -577,8 +580,9 @@ unsigned int KnittingState::log_heuristic() const {
         return target_heuristic();
     }
 
-    // calculate x = ceil(log_2(n+1))
-    int x = 1;
+    // calculate x = floor(log_2(n+1))
+    n++;
+    int x = 0;
     while (n > 1) {
         x++;
         n >>= 1;
@@ -599,14 +603,23 @@ unsigned int KnittingState::braid_prebuilt_heuristic() const {
 }
 
 std::ostream& operator<<(std::ostream& o, const knitting::KnittingState& state) {
-    o << state.machine.racking << " [";
+    for (int i = 0; i < state.machine.racking; i++) {
+        o << "  ";
+    }
+    o << "[";
+
     for (int i = 0; i < state.machine.width; i++) {
         if (i > 0) {
             o << " ";
         }
         o << state.back_needles[i].count;
     }
-    o << "] [";
+    o << "]\n";
+
+    for (int i = 0; i > state.machine.racking; i--) {
+        o << "  ";
+    }
+    o << "[";
     for (int i = 0; i < state.machine.width; i++) {
         if (i > 0) {
             o << " ";

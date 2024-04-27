@@ -25,13 +25,12 @@ KnittingStateLM21::KnittingStateLM21(
     const std::vector<int>& back_loop_counts,
     const std::vector<int>& front_loop_counts,
     const cb::ArtinBraid& braid,
-    const std::vector<LoopSlackConstraint>& slack_constraints,
+    const std::vector<SlackConstraint>& slack_constraints,
     KnittingStateLM21* target
 ) :
     machine(machine),
     braid(braid),
-    loop_locations(braid.Index()),
-    slack_constraints(&slack_constraints)
+    loop_locations(braid.Index())
 {
     auto permutation = braid.GetPerm().Inverse();
 
@@ -43,6 +42,16 @@ KnittingStateLM21::KnittingStateLM21(
         for (int k = 0; k < loop_count; k++, j++) {
             loop_locations[permutation[j+1]-1] = needle;
         }
+    }
+
+    for (SlackConstraint constraint : slack_constraints) {
+        this->slack_constraints.emplace_back(
+            std::find(loop_locations.begin(), loop_locations.end(), constraint.needle_1)
+                - loop_locations.begin(),
+            std::find(loop_locations.begin(), loop_locations.end(), constraint.needle_2)
+                - loop_locations.begin(),
+            constraint.limit
+        );
     }
 
     set_target(target);
@@ -101,7 +110,7 @@ bool KnittingStateLM21::rack(int new_racking) {
         return true;
     }
 
-    for (const LoopSlackConstraint& constraint : *slack_constraints) {
+    for (const LoopSlackConstraint& constraint : slack_constraints) {
         if (!constraint.respected(
             loop_locations[constraint.loop_1], loop_locations[constraint.loop_2], new_racking
         )) {
@@ -159,7 +168,7 @@ bool KnittingStateLM21::operator!=(const KnittingStateLM21& other) const {
 }
 
 KnittingStateLM21& KnittingStateLM21::operator=(const KnittingStateLM21& other) {
-    machine.racking = other.machine.racking;
+    machine = other.machine;
     loop_locations = other.loop_locations;
     braid = other.braid;
     slack_constraints = other.slack_constraints;
@@ -219,7 +228,7 @@ unsigned long long KnittingStateLM21::offsets() const {
     for (unsigned int i = 0; i < loop_locations.size(); i++) {
         int off = loop_locations[i].offset(target->loop_locations[i]);
         if (off != 0 && off < 32 && off >= -32) {
-            offs |= 1 << (off+32);
+            offs |= 1ULL << (off+32);
         }
     }
 
@@ -248,8 +257,9 @@ unsigned int KnittingStateLM21::log_heuristic() const {
         return target_heuristic();
     }
 
-    // calculate x = ceil(log_2(n+1))
-    unsigned int x = 1;
+    // calculate x = floor(log_2(n+1))
+    n++;
+    int x = 0;
     while (n > 1) {
         x++;
         n >>= 1;
@@ -329,7 +339,7 @@ void KnittingStateLM21::TransitionIterator::increment_xfers() {
         }
 
         next_uncanonical.transfer(xfer_is[i], to_front);
-        xfer_command += (to_front ? " f" : " b") + std::to_string(i);
+        xfer_command += (to_front ? " f" : " b") + std::to_string(xfer_is[i]);
     }
 }
 
@@ -363,6 +373,21 @@ bool KnittingStateLM21::TransitionIterator::has_next() {
         }
     }
     return false;
+}
+
+KnittingStateLM21 KnittingStateLM21::TransitionIterator::random(std::mt19937& rng) {
+    KnittingStateLM21 state;
+    int valid_so_far = 0;
+
+    while (has_next()) {
+        std::uniform_int_distribution<std::mt19937::result_type> dist(0, valid_so_far);
+        if (dist(rng) == 0) {
+            state = next;
+        }
+        valid_so_far++;
+    }
+
+    return state;
 }
 
 

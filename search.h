@@ -2,6 +2,7 @@
 #include <unordered_set>
 #include <vector>
 #include <deque>
+#include <iostream>
 #include <algorithm>
 #include "util.h"
 
@@ -139,6 +140,96 @@ SearchResult<State> a_star(
 
     return SearchResult<State>(
         std::vector<typename State::Backpointer>(), -1, d.size(), stop_watch.stop()
+    );
+}
+
+template <typename State, typename TransitionIterator>
+SearchResult<State> ida_star_search(
+    const State& source, const State& target,
+    TransitionIterator (State::*adj)() const, unsigned int (State::*h)() const,
+    unsigned int bound
+) {
+    StopWatch stop_watch;
+    unsigned int nodes_searched = 0;
+
+    std::vector<TransitionIterator> path;
+    path.reserve(bound+2);
+    path.push_back((source.*adj)());
+    std::vector<unsigned int> ds { 0 };
+    std::vector<unsigned int> dhs { (source.*h)() };
+
+    while (!path.empty()) {
+        auto& it = path.back();
+
+        if (it.has_next()) {
+            nodes_searched++;
+
+            unsigned int d = ds.back() + it.weight;
+            unsigned int dh = d + (it.next.*h)();
+
+            if (it.next == target && dh <= bound) {
+                std::vector<typename State::Backpointer> back_path;
+
+                for (auto& back_it : path) {
+                    back_path.emplace_back(back_it.prev, back_it.command);
+                }
+
+                return SearchResult<State>(
+                    back_path, d, nodes_searched, stop_watch.stop()
+                );
+            }
+
+            if (dh <= bound) {
+                auto next_it = (it.next.*adj)();
+                path.push_back(next_it);
+                ds.push_back(d);
+                dhs.push_back(dh);
+            }
+        }
+        else {
+            path.pop_back();
+            ds.pop_back();
+            dhs.pop_back();
+        }
+    }
+
+    return SearchResult<State>(
+        std::vector<typename State::Backpointer>(), -1, nodes_searched, stop_watch.stop()
+    );
+}
+
+template <typename State, typename TransitionIterator>
+SearchResult<State> ida_star(
+    const std::vector<State>& sources, const State& target,
+    TransitionIterator (State::*adj)() const, unsigned int (State::*h)() const,
+    unsigned int limit = 1e9
+) {
+    StopWatch stop_watch;
+    unsigned int nodes_searched = 0;
+
+    // edge case for when target is equal to one of the sources
+    for (const State& source : sources) {
+        nodes_searched++;
+        if (source == target) {
+            return SearchResult<State>(
+                std::vector<typename State::Backpointer>(), 0, nodes_searched, stop_watch.stop()
+            );
+        }
+    }
+
+    for (unsigned int bound = 1; bound < limit; bound++) {
+        for (const State& source : sources) {
+            auto result = ida_star_search(source, target, adj, h, bound);
+            nodes_searched += result.search_tree_size;
+            if (result.path_length != -1) {
+                return SearchResult<State>(
+                    result.path, result.path_length, nodes_searched, stop_watch.stop()
+                );
+            }
+        }
+    }
+    return SearchResult<State>(
+        std::vector<typename State::Backpointer>(), -1, nodes_searched, stop_watch.stop()
     );
 }
 
