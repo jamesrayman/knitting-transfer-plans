@@ -54,72 +54,27 @@ int main () {
     //     std::cout << t.command << std::endl;
     // }
 
-    // {
-    //     kn::KnittingMachine machine (12, -5, 5);
-    //
-    //     std::mt19937 rng(0);
-    //
-    //     kn::ResultAggregate aggregate_1;
-    //     kn::ResultAggregate aggregate_2;
-    //
-    //     for (int i = 0; i < 1000; i++) {
-    //         kn::TestCase test_case = flat_lace(machine, 8, 3, rng);
-    //
-    //         auto result_1 = test_case.test(true, &kn::KnittingState::braid_prebuilt_heuristic);
-    //         std::cout << result_1.path_length << " "
-    //                 << result_1.search_tree_size << " "
-    //                 << result_1.seconds_taken << std::endl;
-    //
-    //         auto result_2 = test_case.test(true, &kn::KnittingStateLM21::braid_prebuilt_heuristic);
-    //         std::cout << result_2.path_length << " "
-    //                 << result_2.search_tree_size << " "
-    //                 << result_2.seconds_taken << std::endl;
-    //
-    //         std::cout << std::endl;
-    //
-    //         if (result_1.path_length != result_2.path_length) {
-    //             std::cout << "error: i = " << i << std::endl;
-    //             return 1;
-    //         }
-    //
-    //         aggregate_1.add_result(result_1);
-    //         aggregate_2.add_result(result_2);
-    //     }
-    //
-    //     std::cout << "Totals:\n";
-    //     std::cout << aggregate_1.search_tree_size << " " << aggregate_1.seconds_taken << std::endl;
-    //     std::cout << aggregate_2.search_tree_size << " " << aggregate_2.seconds_taken << std::endl;
-    // }
-
     {
-        kn::KnittingMachine machine (10, -5, 5);
+        kn::KnittingMachine flat_machine (12, -5, 5);
+        kn::KnittingMachine tube_machine (12, -5, 5);
 
         std::mt19937 rng(0);
 
         kn::ResultAggregate aggregate_1;
         kn::ResultAggregate aggregate_2;
 
-        for (int i = 0; i < 1000; i++) {
-            kn::TestCase test_case = simple_tube(machine, 10, 2, rng);
+        for (int i = 0; i < 2000; i++) {
+            kn::TestCase test_case = i < 1000 ? flat_lace(flat_machine, 8, 3, rng) :
+                                                simple_tube(tube_machine, 10, 3, rng);
 
-            // std::cout << test_case << std::endl;
+            if (i < 1121) continue;
+            if (i == 1131) break;
 
             auto result_1 = test_case.test(true, &kn::KnittingState::braid_prebuilt_heuristic);
-            std::cout << result_1.path_length << " "
-                    << result_1.search_tree_size << " "
-                    << result_1.seconds_taken << std::endl;
+            std::cout << result_1.path_length << " " << result_1.seconds_taken << " " << std::flush;
 
-            // for (const auto& t : result_1.path) {
-            //     std::cout << t.prev << std::endl;
-            //     std::cout << t.command << std::endl;
-            // }
-
-            auto result_2 = test_case.test_id(true, &kn::KnittingState::braid_prebuilt_heuristic);
-            std::cout << result_2.path_length << " "
-                    << result_2.search_tree_size << " "
-                    << result_2.seconds_taken << std::endl;
-
-            std::cout << std::endl;
+            auto result_2 = test_case.test(true, &kn::KnittingStateLM21::braid_prebuilt_heuristic);
+            std::cout << result_2.seconds_taken << std::endl;
 
             if (result_1.path_length != result_2.path_length) {
                 std::cout << "error: i = " << i << std::endl;

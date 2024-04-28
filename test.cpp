@@ -1,5 +1,6 @@
 #include "knitting.h"
 #include "search.h"
+#include "prebuilt.h"
 #include <iostream>
 
 namespace cb = CBraid;
@@ -80,9 +81,9 @@ int main () {
 
         int opt = search::a_star(
             source.all_rackings(), target,
-            &KnittingState::adjacent, &KnittingState::braid_heuristic, 2
+            &KnittingState::adjacent, &KnittingState::braid_heuristic
         ).path_length;
-        if (opt != 2) std::cout << "error: opt\n";
+        if (opt != 2) std::cout << "error: opt = " << opt << "\n";
 
         source.transfer(4, false);
         int opt_back = search::a_star(

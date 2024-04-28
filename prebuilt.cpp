@@ -33,9 +33,7 @@ void construct_table(int max_steps, int min_racking, int max_racking) {
     table.emplace_back();
     for (int racking = min_racking; racking <= max_racking; racking++) {
         table[0].emplace_back();
-        if (racking == 0) {
-            table[0].back().push_back(1UL << 32);
-        }
+        table[0].back().push_back(1ULL << 32);
     }
 
     for (int step = 1; step <= max_steps; step++) {

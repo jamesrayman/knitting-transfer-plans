@@ -34,7 +34,7 @@ KnittingStateLM21::KnittingStateLM21(
     loop_locations(braid.Index()),
     only_contractions(only_contractions)
 {
-    auto permutation = braid.GetPerm().Inverse();
+    auto permutation = braid.GetPerm();
 
     for (char i = 0, j = 0; i < 2*machine.width; i++) {
         NeedleLabel needle = machine[i];

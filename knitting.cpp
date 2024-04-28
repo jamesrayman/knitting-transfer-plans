@@ -237,7 +237,7 @@ bool KnittingState::can_transfer(char loc) const {
             j++;
         }
     }
-    // j = braid.GetPerm().Inverse()[j+1]-1;
+    // j = braid.GetPerm()[j+1]-1;
 
     return braid.CanMerge(j+1);
 }
@@ -262,7 +262,7 @@ bool KnittingState::transfer(char loc, bool to_front) {
                 j++;
             }
         }
-        // j = braid.GetPerm().Inverse()[j+1]-1;
+        // j = braid.GetPerm()[j+1]-1;
 
         if (!braid.CanMerge(j+1)) {
             return false;
