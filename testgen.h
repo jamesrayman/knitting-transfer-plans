@@ -11,13 +11,14 @@ namespace knitting {
 
 class TestCase {
 
-    const KnittingMachine machine;
+    KnittingMachine machine;
     const std::vector<char> source_back_needles;
     const std::vector<char> source_front_needles;
     const std::vector<char> target_back_needles;
     const std::vector<char> target_front_needles;
     const cb::ArtinBraid source_braid;
     const std::vector<SlackConstraint> slack_constraints;
+    char target_racking;
     int target_needle_count;
 
 public:
@@ -28,7 +29,8 @@ public:
         const std::vector<char>&,
         const std::vector<char>&,
         const cb::ArtinBraid&,
-        const std::vector<SlackConstraint>&
+        const std::vector<SlackConstraint>&,
+        char = 0
     );
     TestCase(const TestCase&);
 

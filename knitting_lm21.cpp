@@ -122,6 +122,30 @@ bool KnittingStateLM21::can_transfer(char loc) const {
     return true;
 }
 
+std::vector<char> KnittingStateLM21::back_bed() const {
+    std::vector<char> bed (machine.width);
+
+    for (auto needle : loop_locations) {
+        if (!needle.front) {
+            bed[needle.i]++;
+        }
+    }
+
+    return bed;
+}
+std::vector<char> KnittingStateLM21::front_bed() const {
+    std::vector<char> bed (machine.width);
+
+    for (auto needle : loop_locations) {
+        if (needle.front) {
+            bed[needle.i]++;
+        }
+    }
+
+    return bed;
+
+}
+
 bool KnittingStateLM21::rack(char new_racking) {
     if (new_racking > machine.max_racking || new_racking < machine.min_racking) {
         return false;
@@ -212,11 +236,7 @@ std::vector<KnittingStateLM21> KnittingStateLM21::all_rackings() {
     return v;
 }
 std::vector<KnittingStateLM21> KnittingStateLM21::all_canonical_rackings() {
-    auto v = all_rackings();
-    for (auto& state : v) {
-        state.canonicalize();
-    }
-    return v;
+    return all_rackings();
 }
 
 KnittingStateLM21::TransitionIterator KnittingStateLM21::adjacent() const {
@@ -427,7 +447,7 @@ KnittingStateLM21::Backpointer& KnittingStateLM21::Backpointer::operator=(
 }
 
 std::ostream& operator<<(std::ostream& o, const knitting::KnittingStateLM21& state) {
-    o << state.machine.racking << " [";
+    o << (int)state.machine.racking << " [";
     for (unsigned int i = 0; i < state.loop_locations.size(); i++) {
         if (i > 0) {
             o << " ";

@@ -107,6 +107,7 @@ SearchResult<State> a_star(
         dh[source] = (source.*h)();
     }
 
+
     auto dist_at = [&d](const State& state) {
         return d.count(state) ? d[state] : 1'000'000'000;
     };

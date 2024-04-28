@@ -156,25 +156,20 @@ KnittingState::KnittingState(const KnittingState& other) :
 { }
 
 void KnittingState::calculate_destinations() {
-    auto permutation = braid.GetPerm().Inverse();
+    auto permutation = braid.GetPerm();
 
-    NeedleLabel dest;
-    int left = 0;
-    int j = -1;
+    int j = 0;
     for (char i = 0; i < 2*machine.width; i++) {
         NeedleLabel needle = machine[i];
 
-        while (loop_count(needle) > left) {
-            if (left != 0) {
-                throw InvalidTargetStateException();
-            }
-
-            j++;
-            dest = target->needle_with_braid_rank(permutation[j+1]-1);
-            left = target->loop_count(dest);
+        if (loop_count(needle) > 1) {
+            throw NotImplemented();
         }
-        destination(needle) = dest;
-        left -= loop_count(needle);
+
+        if (loop_count(needle) == 1) {
+            destination(needle) = target->needle_with_braid_rank(permutation[j+1]-1);
+            j++;
+        }
     }
 }
 
@@ -206,14 +201,12 @@ NeedleLabel KnittingState::destination(const NeedleLabel& n) const {
     return n.front ? front_needles[n.i].destination : back_needles[n.i].destination;
 }
 NeedleLabel KnittingState::needle_with_braid_rank(int rank) const {
-    int j = -1;
+    int j = 0;
     for (char i = 0; i < 2*machine.width; i++) {
         NeedleLabel needle = machine[i];
-        if (loop_count(needle) > 0) {
-            j++;
-            if (j == rank) {
-                return needle;
-            }
+        j += loop_count(needle);
+        if (j > rank) {
+            return needle;
         }
     }
     throw InvalidBraidRankException();
@@ -244,7 +237,7 @@ bool KnittingState::can_transfer(char loc) const {
             j++;
         }
     }
-    j = braid.GetPerm().Inverse()[j+1]-1;
+    // j = braid.GetPerm().Inverse()[j+1]-1;
 
     return braid.CanMerge(j+1);
 }
@@ -269,7 +262,7 @@ bool KnittingState::transfer(char loc, bool to_front) {
                 j++;
             }
         }
-        j = braid.GetPerm().Inverse()[j+1]-1;
+        // j = braid.GetPerm().Inverse()[j+1]-1;
 
         if (!braid.CanMerge(j+1)) {
             return false;
@@ -502,11 +495,7 @@ std::vector<KnittingState> KnittingState::all_rackings() {
     return v;
 }
 std::vector<KnittingState> KnittingState::all_canonical_rackings() {
-    auto v = all_rackings();
-    for (auto& state : v) {
-        state.canonicalize();
-    }
-    return v;
+    return all_rackings();
 }
 
 KnittingState::TransitionIterator KnittingState::adjacent() const {

@@ -8,6 +8,7 @@
 namespace knitting {
     class KnittingState;
     class KnittingStateLM21;
+    class TestCase;
 }
 
 template <>
@@ -206,6 +207,10 @@ public:
     class TransitionIterator;
     class Backpointer;
 
+    friend TestCase simple_tube (
+        KnittingMachine machine, int loop_count, int pass_count, std::mt19937& rng
+    );
+
 private:
     KnittingMachine machine;
     cb::ArtinBraid braid;
@@ -235,6 +240,8 @@ public:
 
     void set_target(KnittingStateLM21*);
     bool can_transfer(char) const;
+    std::vector<char> back_bed() const;
+    std::vector<char> front_bed() const;
 
     bool rack(char);
     bool transfer(char, bool);
