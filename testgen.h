@@ -35,7 +35,7 @@ public:
 
     search::SearchResult<KnittingState> test(bool, unsigned int (KnittingState::*h)() const);
     search::SearchResult<KnittingState> test_id(bool, unsigned int (KnittingState::*h)() const);
-    search::SearchResult<KnittingStateLM21> test_lm21(
+    search::SearchResult<KnittingStateLM21> test(
         bool, unsigned int (KnittingStateLM21::*h)() const
     );
 
@@ -45,6 +45,19 @@ public:
 TestCase flat_lace (KnittingMachine, int, int, std::mt19937&);
 TestCase simple_tube (KnittingMachine, int, int, std::mt19937&);
 
+class ResultAggregate {
+public:
+    std::size_t search_tree_size;
+    double seconds_taken;
+
+    ResultAggregate();
+
+    template<typename State>
+    void add_result(search::SearchResult<State> result) {
+        search_tree_size += result.search_tree_size;
+        seconds_taken += result.seconds_taken;
+    }
+};
 
 }
 

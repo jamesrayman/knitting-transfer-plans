@@ -99,7 +99,7 @@ search::SearchResult<KnittingState> TestCase::test_id(
     }
 }
 
-search::SearchResult<KnittingStateLM21> TestCase::test_lm21(
+search::SearchResult<KnittingStateLM21> TestCase::test(
     bool canonicalize, unsigned int (KnittingStateLM21::*h)() const
 ) {
     KnittingStateLM21 target(
@@ -139,51 +139,42 @@ std::ostream& operator<<(std::ostream& o, const knitting::TestCase& state) {
     return o;
 }
 
-
-TestCase flat_lace (KnittingMachine machine, int loop_count, int max_stack, std::mt19937& rng) {
+std::vector<char> flat_bed(
+    KnittingMachine machine, int loop_count, int max_stack, std::mt19937& rng
+) {
+    std::vector<char> bed(machine.width, 0);
     std::uniform_int_distribution<char> loop_skip(1, 2);
-    std::uniform_int_distribution<char> loop_loc_dist(0, machine.width-1);
-
-    std::vector<char> empty_bed(machine.width, 0);
-    std::vector<char> target_bed(machine.width, 0);
-    std::vector<char> source_bed(machine.width, 0);
-    std::vector<SlackConstraint> slack_constraints;
 
     int loops_remaining = loop_count;
-    for (char i = 0; i < machine.width; i += loop_skip(rng)) {
-        source_bed[i]++;
+    char i = loop_skip(rng)-1;
+    for (; i < machine.width; i += loop_skip(rng)) {
+        bed[i]++;
         loops_remaining--;
 
         if (loops_remaining == 0) {
             break;
         }
     }
-    while (loops_remaining > 0) {
-        int i = loop_loc_dist(rng);
 
-        if (source_bed[i] == 0) {
-            source_bed[i]++;
+    std::uniform_int_distribution<char> loop_loc_dist(0, std::min(i, (char)(machine.width-1)));
+    while (loops_remaining > 0) {
+        int j = loop_loc_dist(rng);
+
+        if (bed[j] < max_stack) {
+            bed[j]++;
             loops_remaining--;
         }
     }
 
-    loops_remaining = loop_count;
-    for (char i = 0; i < machine.width; i += loop_skip(rng)) {
-        target_bed[i]++;
-        loops_remaining--;
+    return bed;
+}
 
-        if (loops_remaining == 0) {
-            break;
-        }
-    }
-    while (loops_remaining > 0) {
-        int i = loop_loc_dist(rng);
+TestCase flat_lace (KnittingMachine machine, int loop_count, int max_stack, std::mt19937& rng) {
 
-        if (target_bed[i] < max_stack) {
-            target_bed[i]++;
-            loops_remaining--;
-        }
-    }
+    std::vector<char> empty_bed(machine.width, 0);
+    std::vector<char> source_bed = flat_bed(machine, loop_count, 1, rng);
+    std::vector<char> target_bed = flat_bed(machine, loop_count, max_stack, rng);
+    std::vector<SlackConstraint> slack_constraints;
 
     char prev = -1;
     for (char i = 0; i < machine.width; i++) {
@@ -215,5 +206,10 @@ TestCase simple_tube (
 ) {
     throw NotImplemented();
 }
+
+ResultAggregate::ResultAggregate() :
+    search_tree_size(0),
+    seconds_taken(0)
+{ }
 
 }

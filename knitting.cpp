@@ -40,7 +40,7 @@ int NeedleLabel::offset(NeedleLabel destination) const {
 }
 
 std::ostream& operator<<(std::ostream& o, const NeedleLabel& needle_label) {
-    return o << (needle_label.front ? 'f' : 'b') << needle_label.i;
+    return o << (needle_label.front ? 'f' : 'b') << (int)needle_label.i;
 }
 
 Needle::Needle(char count, NeedleLabel destination) :
@@ -603,7 +603,7 @@ std::ostream& operator<<(std::ostream& o, const knitting::KnittingState& state) 
         if (i > 0) {
             o << " ";
         }
-        o << state.back_needles[i].count;
+        o << (int)state.back_needles[i].count;
     }
     o << "]\n";
 
@@ -615,7 +615,7 @@ std::ostream& operator<<(std::ostream& o, const knitting::KnittingState& state) 
         if (i > 0) {
             o << " ";
         }
-        o << state.front_needles[i].count;
+        o << (int)state.front_needles[i].count;
     }
     o << "] ";
     o << state.braid;

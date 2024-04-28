@@ -74,7 +74,7 @@ public:
     const std::vector<typename State::Backpointer> path;
     const int path_length;
     const std::size_t search_tree_size;
-    double seconds_taken;
+    const double seconds_taken;
 
     SearchResult(
         const std::vector<typename State::Backpointer>& path,

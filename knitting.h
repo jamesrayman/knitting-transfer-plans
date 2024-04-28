@@ -212,6 +212,7 @@ private:
     std::vector<NeedleLabel> loop_locations;
     std::vector<LoopSlackConstraint> slack_constraints;
     KnittingStateLM21* target;
+    bool only_contractions;
 
     void calculate_destinations();
 
@@ -223,7 +224,8 @@ public:
         const std::vector<char>&,
         const cb::ArtinBraid&,
         const std::vector<SlackConstraint>&,
-        KnittingStateLM21* = nullptr
+        KnittingStateLM21* = nullptr,
+        bool = false
     );
     KnittingStateLM21(const KnittingStateLM21&);
 

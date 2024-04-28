@@ -26,11 +26,13 @@ KnittingStateLM21::KnittingStateLM21(
     const std::vector<char>& front_loop_counts,
     const cb::ArtinBraid& braid,
     const std::vector<SlackConstraint>& slack_constraints,
-    KnittingStateLM21* target
+    KnittingStateLM21* target,
+    bool only_contractions
 ) :
     machine(machine),
     braid(braid),
-    loop_locations(braid.Index())
+    loop_locations(braid.Index()),
+    only_contractions(only_contractions)
 {
     auto permutation = braid.GetPerm().Inverse();
 
@@ -61,7 +63,8 @@ KnittingStateLM21::KnittingStateLM21(const KnittingStateLM21& other) :
     braid(other.braid),
     loop_locations(other.loop_locations),
     slack_constraints(other.slack_constraints),
-    target(other.target)
+    target(other.target),
+    only_contractions(other.only_contractions)
 { }
 
 char KnittingStateLM21::racking() const {
@@ -99,7 +102,24 @@ bool KnittingStateLM21::can_transfer(char loc) const {
     NeedleLabel back_needle = NeedleLabel(false, loc - machine.racking);
     NeedleLabel front_needle = NeedleLabel(true, loc);
 
-    return !needle_empty(front_needle) || !needle_empty(back_needle);
+    if (needle_empty(front_needle) && needle_empty(back_needle)) {
+        return false;
+    }
+    if (only_contractions && !needle_empty(front_needle) && !needle_empty(back_needle)) {
+        for (auto& constraint : slack_constraints) {
+            if (
+                (loop_locations[constraint.loop_1] == front_needle &&
+                 loop_locations[constraint.loop_2] == back_needle) ||
+                (loop_locations[constraint.loop_1] == back_needle &&
+                 loop_locations[constraint.loop_2] == front_needle)
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+    return true;
 }
 
 bool KnittingStateLM21::rack(char new_racking) {
@@ -173,6 +193,7 @@ KnittingStateLM21& KnittingStateLM21::operator=(const KnittingStateLM21& other) 
     braid = other.braid;
     slack_constraints = other.slack_constraints;
     target = other.target;
+    only_contractions = other.only_contractions;
 
     return *this;
 }
