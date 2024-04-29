@@ -33,6 +33,11 @@ void construct_table(int max_steps, int min_racking, int max_racking) {
     table.emplace_back();
     for (int racking = min_racking; racking <= max_racking; racking++) {
         table[0].emplace_back();
+
+        // LM21 adds the offset set {0} iff racking == 0. However, this
+        // assumes that the target state will always have a racking of
+        // 0. To remedy this, we always add {0}, at the cost of
+        // weakening the heuristic.
         table[0].back().push_back(1ULL << 32);
     }
 
