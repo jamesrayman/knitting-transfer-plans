@@ -408,7 +408,7 @@ bool KnittingStateLM21::TransitionIterator::has_next() {
 }
 
 KnittingStateLM21 KnittingStateLM21::TransitionIterator::random(std::mt19937& rng) {
-    KnittingStateLM21 state;
+    KnittingStateLM21 state = prev;
     int valid_so_far = 0;
 
     while (has_next()) {
