@@ -61,21 +61,21 @@ int main () {
         f[1] = 2;
         f[2] = 1;
 
-        KnittingMachine machine (6, -5, 5, 0);
+        KnittingMachine machine (5, -4, 4, 0);
         KnittingState source(machine,
-            { 0, 0, 1, 0, 1, 1 },
-            { 0, 1, 0, 1, 1, 1 },
+            { 0, 1, 0, 1, 1 },
+            { 1, 0, 1, 1, 1 },
             cb::ArtinBraid(f), {
-                SlackConstraint(NeedleLabel(false, 2), NeedleLabel(false, 4), 2),
-                SlackConstraint(NeedleLabel(true, 4), NeedleLabel(true, 5), 1)
+                SlackConstraint(NeedleLabel(false, 1), NeedleLabel(false, 3), 2),
+                SlackConstraint(NeedleLabel(true, 3), NeedleLabel(true, 4), 1)
             }
         );
         KnittingState target = source;
 
         if (!target.rack(-2)) std::cout << "error: target.rack\n";
-        if (!target.transfer(1, false)) std::cout << "error: target.transfer\n";
+        if (!target.transfer(0, false)) std::cout << "error: target.transfer\n";
         if (!target.rack(0)) std::cout << "error: target.rack\n";
-        if (!target.transfer(4, true)) std::cout << "error: target.transfer\n";
+        if (!target.transfer(3, true)) std::cout << "error: target.transfer\n";
 
         source.set_target(&target);
 
@@ -85,19 +85,19 @@ int main () {
         ).path_length;
         if (opt != 2) std::cout << "error: opt = " << opt << "\n";
 
-        source.transfer(4, false);
+        source.transfer(3, false);
         int opt_back = search::a_star(
             source.all_rackings(), target,
-            &KnittingState::adjacent, &KnittingState::braid_heuristic, 2
+            &KnittingState::adjacent, &KnittingState::braid_heuristic
         ).path_length;
-        if (opt_back != -1) std::cout << "error: opt_back\n";
+        if (opt_back != 6) std::cout << "error: opt_back = " << opt_back << "\n";
 
         source.transfer(4, true);
         int opt_front = search::a_star(
             source.all_rackings(), target,
-            &KnittingState::adjacent, &KnittingState::braid_heuristic, 2
+            &KnittingState::adjacent, &KnittingState::braid_heuristic
         ).path_length;
-        if (opt_front != -1) std::cout << "error: opt_front\n";
+        if (opt_front != 6) std::cout << "error: opt_front = " << opt_front << "\n";
     }
 
     return 0;
